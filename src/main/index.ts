@@ -104,6 +104,10 @@ function loadStore(): Store {
 let storeWriteTimer: ReturnType<typeof setTimeout> | null = null;
 let pendingStore: Store | null = null;
 
+function getStore(): Store {
+  return pendingStore ?? loadStore();
+}
+
 function saveStore(store: Store): void {
   pendingStore = store;
   if (storeWriteTimer) {
@@ -1320,13 +1324,13 @@ ipcMain.on("set-config", (_event, key: string, value: unknown) => {
 });
 
 ipcMain.on("save-open-files", (_event, entries: OpenEntry[]) => {
-  const store = loadStore();
+  const store = getStore();
   store.openFiles = entries;
   saveStore(store);
 });
 
 ipcMain.on("save-active-file", (_event, path: string) => {
-  const store = loadStore();
+  const store = getStore();
   store.activeFile = path;
   saveStore(store);
 });
@@ -1359,11 +1363,11 @@ ipcMain.on("start-file-drag", async (event, filePath: string) => {
 });
 
 ipcMain.handle("get-store", () => {
-  return loadStore();
+  return getStore();
 });
 
 ipcMain.on("tab-activated", (_event, path: string) => {
-  const store = loadStore();
+  const store = getStore();
   store.tabActivations[path] = new Date().toISOString();
   saveStore(store);
 });
