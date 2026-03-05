@@ -266,11 +266,25 @@ body[data-theme="dark"] .markdown-body .html-block-content {
   justify-content: flex-end;
 }
 
+.gutter-line-content {
+  display: flex;
+  align-items: flex-end;
+  padding-bottom: 2px;
+}
+
+.gutter-indicators {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  padding-left: 4px;
+  padding-bottom: 2px;
+}
+
 .gutter-line-number {
   line-height: 1;
   text-align: right;
+  flex: 1;
   padding-right: 4px;
-  padding-bottom: 2px;
   color: var(--status-text);
   opacity: 0.6;
   user-select: none;
@@ -289,7 +303,6 @@ body[data-theme="dark"] .markdown-body .html-block-content {
   border-radius: 2px;
   background: var(--annotation-marker);
   flex-shrink: 0;
-  position: absolute;
   transition: opacity 0.15s;
 }
 

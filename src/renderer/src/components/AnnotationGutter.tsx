@@ -163,7 +163,8 @@ export function AnnotationGutter({
     return String(Math.max(...lines.map((l) => l.line))).length;
   }, [lines]);
 
-  const gutterWidth = `calc(${maxDigits + (hasAnnotations ? 1 : 0)}ch + 8px)`;
+  const indicatorWidth = hasAnnotations ? DOT_SIZE + DOT_LEFT : 0;
+  const gutterWidth = `calc(${maxDigits}ch + ${8 + indicatorWidth}px)`;
 
   return (
     <div ref={gutterRef} className="annotation-gutter" style={{ width: gutterWidth }}>
@@ -190,21 +191,23 @@ export function AnnotationGutter({
               ? () => onDotClick(insertionLines)
               : undefined}
           >
-            {hasDot && (
-              <div
-                className={classNames(
-                  "gutter-annotation-dot",
-                  isCollapsed && "gutter-annotation-dot--collapsed",
+            <div className="gutter-line-content">
+              <div className="gutter-indicators">
+                {hasDot && (
+                  <div
+                    className={classNames(
+                      "gutter-annotation-dot",
+                      isCollapsed && "gutter-annotation-dot--collapsed",
+                    )}
+                    style={{
+                      width: DOT_SIZE,
+                      height: DOT_SIZE,
+                    }}
+                  />
                 )}
-                style={{
-                  width: DOT_SIZE,
-                  height: DOT_SIZE,
-                  left: DOT_LEFT,
-                  bottom: DOT_BOTTOM,
-                }}
-              />
-            )}
-            <span className="gutter-line-number">{l.line}</span>
+              </div>
+              <span className="gutter-line-number">{l.line}</span>
+            </div>
             <div className="gutter-line-divider" />
           </div>
         );
