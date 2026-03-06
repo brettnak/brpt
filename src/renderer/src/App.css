@@ -195,12 +195,20 @@ body[data-theme="dark"] .markdown-body .html-block-content {
   height: auto;
   overflow: hidden;
   margin: 8px 0;
-  transition: height 0.2s ease, margin 0.2s ease;
+  transition: height 0.2s ease, margin 0.1s ease, display 0.2s ease allow-discrete;
 }
 
 .annotation-wrapper--collapsed {
   height: 0;
   margin: 0;
+  display: none;
+}
+
+@starting-style {
+  .annotation-wrapper {
+    height: 0;
+    margin: 0;
+  }
 }
 
 .annotation-block {
