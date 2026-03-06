@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode, type RefObject } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import { annotationInsertionLine } from "../../../../shared/annotations";
 import { classNames } from "../../classNames";
 import type { Annotation, ContentWidthConfig, ContentWidthMode, MarkdownTab, ViewerCapabilities } from "../../types";
@@ -185,88 +185,19 @@ interface MarkdownContentProps {
   findMatchLines?: Set<number>;
 }
 
-interface AnnotatedChunk {
-  html: string;
-  annotations: Annotation[];
-  startLine: number;
-  endLine: number;
-}
-
-function buildAnnotatedChunks(content: string, annotations: Annotation[]): AnnotatedChunk[] {
-  const lines = content.split("\n");
-  const sorted = [...annotations].sort(
-    (a, b) => annotationInsertionLine(a) - annotationInsertionLine(b),
-  );
-
-  // Group annotations by their insertion line
-  const byLine = new Map<number, Annotation[]>();
-  for (const a of sorted) {
-    const line = annotationInsertionLine(a);
-    const group = byLine.get(line);
-    if (group) {
-      group.push(a);
-    } else {
-      byLine.set(line, [a]);
-    }
-  }
-
-  // Get sorted unique insertion points
-  const breakpoints = [...byLine.keys()].sort((a, b) => a - b);
-
-  const chunks: AnnotatedChunk[] = [];
-  let cursor = 0;
-
-  for (const bp of breakpoints) {
-    // Clamp to valid line range (1-indexed)
-    const lineIdx = Math.min(bp, lines.length);
-    if (lineIdx > cursor) {
-      const chunk = lines.slice(cursor, lineIdx).join("\n");
-      const chunkStartLine = cursor + 1;
-      chunks.push({
-        html: mdview.renderMarkdown(chunk, chunkStartLine),
-        annotations: byLine.get(bp)!,
-        startLine: chunkStartLine,
-        endLine: lineIdx,
-      });
-      cursor = lineIdx;
-    } else {
-      // Annotation at or before cursor — attach to previous chunk or create empty one
-      if (chunks.length > 0) {
-        chunks[chunks.length - 1].annotations.push(...byLine.get(bp)!);
-      } else {
-        chunks.push({ html: "", annotations: byLine.get(bp)!, startLine: 1, endLine: 0 });
-      }
-    }
-  }
-
-  // Remaining content after the last annotation
-  if (cursor < lines.length) {
-    const chunk = lines.slice(cursor).join("\n");
-    const chunkStartLine = cursor + 1;
-    chunks.push({
-      html: mdview.renderMarkdown(chunk, chunkStartLine),
-      annotations: [],
-      startLine: chunkStartLine,
-      endLine: lines.length,
-    });
-  }
-
-  return chunks;
-}
-
 export function MarkdownContent({
   tab,
   contentWidth,
   contentElRef,
   findMatchLines,
 }: MarkdownContentProps): ReactNode {
-  const hasAnnotations = tab.annotations && tab.annotations.length > 0;
   const [contentEl, setContentEl] = useState<HTMLDivElement | null>(null);
 
   const combinedRef = useCallback((el: HTMLDivElement | null) => {
     setContentEl(el);
     contentElRef(el);
   }, [contentElRef]);
+
   const [collapsedInsertionLines, setCollapsedInsertionLines] = useState<Set<number>>(new Set());
 
   const handleDotClick = useCallback((insertionLines: number[]) => {
@@ -285,18 +216,158 @@ export function MarkdownContent({
   }, []);
 
   const renderedHtml = useMemo(() => {
-    if (hasAnnotations) {
-      return null;
-    }
     return mdview.renderMarkdown(tab.content, 1);
-  }, [tab.content, hasAnnotations]);
+  }, [tab.content]);
 
-  const annotatedChunks = useMemo(() => {
-    if (!hasAnnotations) {
-      return null;
+  // Manage innerHTML manually via ref so React never touches the element's children.
+  // This prevents React 19's dangerouslySetInnerHTML reconciliation from destroying
+  // our injected annotation wrappers on re-renders.
+  const markdownBodyRef = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    if (markdownBodyRef.current) {
+      markdownBodyRef.current.innerHTML = renderedHtml;
     }
-    return buildAnnotatedChunks(tab.content, tab.annotations!);
-  }, [tab.content, tab.annotations, hasAnnotations]);
+  }, [renderedHtml]);
+
+  // Ref so the injection effect can read collapsed state without re-running on changes
+  const collapsedRef = useRef(collapsedInsertionLines);
+  collapsedRef.current = collapsedInsertionLines;
+
+  // Inject annotation blocks into the DOM after the markdown content is set
+  useEffect(() => {
+    const markdownBody = markdownBodyRef.current;
+    if (!markdownBody || !tab.annotations || tab.annotations.length === 0) {
+      return;
+    }
+
+    // Group annotations by insertion line
+    const byLine = new Map<number, Annotation[]>();
+    for (const a of tab.annotations) {
+      const line = annotationInsertionLine(a);
+      const group = byLine.get(line);
+      if (group) {
+        group.push(a);
+      } else {
+        byLine.set(line, [a]);
+      }
+    }
+
+    // Source-line elements in document order, excluding any inside annotation blocks
+    const sourceLineElements = Array.from(
+      markdownBody.querySelectorAll<HTMLElement>("[data-source-line]"),
+    ).filter((e) => !e.closest(".annotation-block"));
+
+    const injected: HTMLElement[] = [];
+    const sortedInsertionLines = [...byLine.keys()].sort((a, b) => a - b);
+    const collapsed = collapsedRef.current;
+
+    for (const insertionLine of sortedInsertionLines) {
+      const annotations = byLine.get(insertionLine)!;
+
+      // Find the last source-line element at or before the insertion line
+      let target: HTMLElement | null = null;
+      for (const el of sourceLineElements) {
+        const line = parseInt(el.dataset.sourceLine!, 10);
+        if (line <= insertionLine) {
+          target = el;
+        }
+      }
+
+      if (!target) {
+        continue;
+      }
+
+      // Find the DOM node to insert after
+      let insertAfter: Element;
+      const pre = target.closest("pre");
+      if (pre && markdownBody.contains(pre)) {
+        // Inside a code block — insert after the <pre>
+        insertAfter = pre;
+      } else {
+        // Walk up to the direct child of .markdown-body
+        let ancestor: Element = target;
+        while (ancestor.parentElement && ancestor.parentElement !== markdownBody) {
+          ancestor = ancestor.parentElement;
+        }
+        insertAfter = ancestor;
+      }
+
+      // Skip past any annotation wrappers already inserted after this element
+      while (insertAfter.nextElementSibling?.classList.contains("annotation-wrapper")) {
+        insertAfter = insertAfter.nextElementSibling;
+      }
+
+      for (const a of annotations) {
+        const wrapper = document.createElement("div");
+        wrapper.className = "annotation-wrapper" +
+          (collapsed.has(insertionLine) ? " annotation-wrapper--collapsed" : "");
+        wrapper.dataset.insertionLine = String(insertionLine);
+
+        const block = document.createElement("div");
+        block.className = "annotation-block";
+
+        const dismiss = document.createElement("button");
+        dismiss.className = "annotation-dismiss";
+        dismiss.dataset.annotationId = a.id;
+        dismiss.setAttribute("aria-label", "Dismiss annotation");
+        dismiss.textContent = "\u00d7";
+
+        const body = document.createElement("div");
+        body.className = "markdown-body";
+        body.innerHTML = mdview.renderMarkdown(a.content);
+
+        block.appendChild(dismiss);
+        block.appendChild(body);
+        wrapper.appendChild(block);
+
+        insertAfter.after(wrapper);
+        insertAfter = wrapper;
+        injected.push(wrapper);
+      }
+    }
+
+    return () => {
+      for (const el of injected) {
+        el.remove();
+      }
+    };
+  }, [tab.content, tab.annotations]);
+
+  // Toggle collapsed class on existing annotation wrappers (separate effect so CSS transitions work)
+  useLayoutEffect(() => {
+    const markdownBody = markdownBodyRef.current;
+    if (!markdownBody) {
+      return;
+    }
+    const wrappers = markdownBody.querySelectorAll<HTMLElement>(".annotation-wrapper");
+    for (const wrapper of wrappers) {
+      const line = parseInt(wrapper.dataset.insertionLine!, 10);
+      if (collapsedInsertionLines.has(line)) {
+        wrapper.classList.add("annotation-wrapper--collapsed");
+      } else {
+        wrapper.classList.remove("annotation-wrapper--collapsed");
+      }
+    }
+  }, [collapsedInsertionLines, tab.annotations]);
+
+  // Event delegation for dismiss buttons on injected annotation nodes
+  useEffect(() => {
+    if (!contentEl) {
+      return;
+    }
+    const handler = (e: MouseEvent) => {
+      const dismiss = (e.target as HTMLElement).closest(".annotation-dismiss");
+      if (dismiss instanceof HTMLElement) {
+        const id = dismiss.dataset.annotationId;
+        if (id) {
+          mdview.dismissAnnotation(tab.path, id);
+        }
+      }
+    };
+    contentEl.addEventListener("click", handler);
+    return () => contentEl.removeEventListener("click", handler);
+  }, [contentEl, tab.path]);
 
   const contentStyle: React.CSSProperties = (() => {
     switch (contentWidth.mode) {
@@ -326,47 +397,7 @@ export function MarkdownContent({
         />
         <div ref={combinedRef} className="flex-1 min-w-0 pl-8">
           <div className="mx-auto" style={contentStyle}>
-          {annotatedChunks ? (
-            annotatedChunks.map((chunk, i) => (
-              <div key={i}>
-                {chunk.html && (
-                  <div
-                    className="markdown-body"
-                    data-chunk-lines={`${chunk.startLine}-${chunk.endLine}`}
-                    dangerouslySetInnerHTML={{ __html: chunk.html }}
-                  />
-                )}
-                {chunk.annotations.map((a, j) => (
-                  <div
-                    key={j}
-                    className={classNames(
-                      "annotation-wrapper",
-                      collapsedInsertionLines.has(chunk.endLine) && "annotation-wrapper--collapsed",
-                    )}
-                  >
-                    <div className="annotation-block">
-                      <button
-                        className="annotation-dismiss"
-                        onClick={() => mdview.dismissAnnotation(tab.path, a.id)}
-                        aria-label="Dismiss annotation"
-                      >
-                        ×
-                      </button>
-                      <div
-                        className="markdown-body"
-                        dangerouslySetInnerHTML={{ __html: mdview.renderMarkdown(a.content) }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ))
-          ) : (
-            <div
-              className="markdown-body"
-              dangerouslySetInnerHTML={{ __html: renderedHtml! }}
-            />
-          )}
+            <div className="markdown-body" ref={markdownBodyRef} />
           </div>
         </div>
       </div>
