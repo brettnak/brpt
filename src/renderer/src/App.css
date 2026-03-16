@@ -190,6 +190,65 @@ body[data-theme="dark"] .markdown-body .html-block-content {
   background-color: var(--sidebar-bg) !important;
 }
 
+/** Mermaid diagrams */
+
+.mermaid-block {
+  margin: 16px 0;
+}
+
+.mermaid-block .mermaid-source {
+  margin: 0;
+}
+
+.mermaid-block--rendered .mermaid-source {
+  display: none;
+}
+
+.mermaid-block--rendered .mermaid-rendered {
+  display: flex;
+  justify-content: center;
+}
+
+.mermaid-block--rendered .mermaid-rendered svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.mermaid-rendered foreignObject:has(.edgeLabel) {
+  overflow: visible;
+  background-color: transparent;
+}
+
+.mermaid-rendered .edgeLabel,
+.mermaid-rendered .labelBkg {
+  background-color: transparent !important;
+}
+
+.mermaid-rendered .edgeLabel p {
+  padding: 2px 6px;
+  background: var(--bg);
+  border-radius: 4px;
+}
+
+
+.mermaid-block--error {
+  border: 1px solid rgba(248, 81, 73, 0.5);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.mermaid-error {
+  padding: 8px 12px;
+  font-size: 12px;
+  color: #cf222e;
+  background: rgba(248, 81, 73, 0.1);
+}
+
+body[data-theme="dark"] .mermaid-error {
+  color: #f85149;
+  background: rgba(248, 81, 73, 0.15);
+}
+
 .annotation-wrapper {
   interpolate-size: allow-keywords;
   height: auto;

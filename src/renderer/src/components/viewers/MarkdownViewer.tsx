@@ -1,3 +1,4 @@
+import mermaid from "mermaid";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import { annotationInsertionLine } from "../../../../shared/annotations";
 import { classNames } from "../../classNames";
@@ -5,6 +6,22 @@ import type { Annotation, ContentWidthConfig, ContentWidthMode, MarkdownTab, Vie
 import { AnnotationGutter, type GutterLine } from "../AnnotationGutter";
 import { useCurrentHeading } from "../../useCurrentHeading";
 import { SegmentedControl } from "../ui-elements/SegmentedControl";
+
+mermaid.initialize({ startOnLoad: false, theme: "default" });
+
+function useBodyTheme(): "light" | "dark" {
+  const [theme, setTheme] = useState<"light" | "dark">(
+    () => (document.body.dataset.theme as "light" | "dark") || "light",
+  );
+  useEffect(() => {
+    const observer = new MutationObserver(() => {
+      setTheme((document.body.dataset.theme as "light" | "dark") || "light");
+    });
+    observer.observe(document.body, { attributes: true, attributeFilter: ["data-theme"] });
+    return () => observer.disconnect();
+  }, []);
+  return theme;
+}
 
 const { mdview } = window;
 
@@ -191,6 +208,7 @@ export function MarkdownContent({
   contentElRef,
   findMatchLines,
 }: MarkdownContentProps): ReactNode {
+  const appTheme = useBodyTheme();
   const [contentEl, setContentEl] = useState<HTMLDivElement | null>(null);
 
   const combinedRef = useCallback((el: HTMLDivElement | null) => {
@@ -229,6 +247,75 @@ export function MarkdownContent({
       markdownBodyRef.current.innerHTML = renderedHtml;
     }
   }, [renderedHtml]);
+
+  // Render mermaid diagrams in placeholder blocks (re-runs on theme change)
+  useEffect(() => {
+    const markdownBody = markdownBodyRef.current;
+    if (!markdownBody) {
+      return;
+    }
+    const blocks = markdownBody.querySelectorAll<HTMLElement>(".mermaid-block");
+    if (blocks.length === 0) {
+      return;
+    }
+
+    // Store source text on first pass, reset rendered/errored blocks for re-render
+    for (const block of blocks) {
+      if (!block.dataset.mermaidSource) {
+        const source = block.querySelector("code")?.textContent?.trim();
+        if (source) {
+          block.dataset.mermaidSource = source;
+        }
+      }
+      block.classList.remove("mermaid-block--rendered", "mermaid-block--error");
+      block.querySelector(".mermaid-rendered")?.remove();
+      block.querySelector(".mermaid-error")?.remove();
+    }
+
+    const mermaidTheme = appTheme === "dark" ? "dark" : "default";
+    mermaid.initialize({ startOnLoad: false, theme: mermaidTheme });
+
+    let cancelled = false;
+
+    (async () => {
+      for (const block of blocks) {
+        if (cancelled) {
+          break;
+        }
+        const code = block.dataset.mermaidSource;
+        if (!code) {
+          continue;
+        }
+        const id = `mermaid-${crypto.randomUUID()}`;
+        try {
+          const { svg } = await mermaid.render(id, code);
+          if (cancelled) {
+            break;
+          }
+          const svgContainer = document.createElement("div");
+          svgContainer.className = "mermaid-rendered";
+          svgContainer.innerHTML = svg;
+          block.appendChild(svgContainer);
+          block.classList.add("mermaid-block--rendered");
+        } catch (err) {
+          if (cancelled) {
+            break;
+          }
+          block.classList.add("mermaid-block--error");
+          const errorEl = document.createElement("div");
+          errorEl.className = "mermaid-error";
+          errorEl.textContent = err instanceof Error ? err.message : "Failed to render diagram";
+          block.appendChild(errorEl);
+          // Clean up any element mermaid may have injected into the document
+          document.getElementById(id)?.remove();
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [renderedHtml, appTheme]);
 
   // Ref so the injection effect can read collapsed state without re-running on changes
   const collapsedRef = useRef(collapsedInsertionLines);

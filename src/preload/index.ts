@@ -112,6 +112,17 @@ const lineRenderer = {
     const langString = (token.lang || "").match(/\S+/)?.[0] ? token.lang : "";
     const raw = token.text.replace(/\n$/, "") + "\n";
 
+    // Mermaid blocks get a placeholder div — rendering happens in the browser.
+    // Use the closing fence line as the source line so the gutter label appears
+    // at the bottom of the block, consistent with how code blocks show their
+    // last inner line at the bottom.
+    if (langString === "mermaid") {
+      const escaped = raw.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      const closingLine = token._line != null ? token._line + token.raw.split("\n").length - 2 : null;
+      const lineAttr = closingLine != null ? ` data-source-line="${closingLine}"` : "";
+      return `<div class="mermaid-block"${lineAttr}><pre class="mermaid-source"><code>${escaped}</code></pre></div>\n`;
+    }
+
     // markedHighlight's renderer is overridden by ours, so highlight here directly.
     let highlighted: string;
     if (langString && hljs.getLanguage(langString)) {
@@ -212,15 +223,20 @@ const lineRenderer = {
   },
 };
 
+function highlightCode(code: string, lang: string): string {
+  if (lang === "mermaid") {
+    return code;
+  }
+  if (lang && hljs.getLanguage(lang)) {
+    return hljs.highlight(code, { language: lang }).value;
+  }
+  return hljs.highlightAuto(code).value;
+}
+
 const marked = new Marked(
   markedHighlight({
     langPrefix: "hljs language-",
-    highlight(code: string, lang: string) {
-      if (lang && hljs.getLanguage(lang)) {
-        return hljs.highlight(code, { language: lang }).value;
-      }
-      return hljs.highlightAuto(code).value;
-    },
+    highlight: highlightCode,
   }),
   { renderer: lineRenderer },
 );
@@ -229,12 +245,7 @@ const marked = new Marked(
 const markedPlain = new Marked(
   markedHighlight({
     langPrefix: "hljs language-",
-    highlight(code: string, lang: string) {
-      if (lang && hljs.getLanguage(lang)) {
-        return hljs.highlight(code, { language: lang }).value;
-      }
-      return hljs.highlightAuto(code).value;
-    },
+    highlight: highlightCode,
   }),
 );
 

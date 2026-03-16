@@ -36,6 +36,7 @@
     "highlight.js": "^11.11.1",
     "marked": "^15.0.7",
     "marked-highlight": "^2.2.1",
+    "mermaid": "^11.13.0",
     "sonner": "^2.0.7"
   },
   "devDependencies": {
