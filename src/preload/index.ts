@@ -164,27 +164,29 @@ const lineRenderer = {
   list(this: { parser: { parse(tokens: Token[], loose: boolean): string } }, token: Tokens.List & { _line?: number }) {
     const ordered = token.ordered;
     const start = token.start;
+    const hasTaskItems = token.items.some((item) => item.task);
     let body = "";
     for (const item of token.items) {
       const itemWithLine = item as Tokens.ListItem & { _line?: number };
       let itemBody = "";
+      const parsed = this.parser.parse(item.tokens, !!item.loose);
       if (item.task) {
-        const checkbox = `<input ${item.checked ? 'checked="" ' : ''}disabled="" type="checkbox">`;
+        const checkbox = `<input ${item.checked ? 'checked="" ' : ''}disabled="" type="checkbox" class="task-list-item-checkbox"> `;
         if (item.loose) {
-          if (item.tokens[0]?.type === "paragraph") {
-            const pToken = item.tokens[0] as Tokens.Paragraph;
-            item.tokens[0] = { ...pToken, text: checkbox + " " + pToken.text } as Tokens.Paragraph;
-          }
+          itemBody += parsed.replace(/<p([\s>])/, `<p$1${checkbox}`);
         } else {
-          itemBody += checkbox + " ";
+          itemBody += checkbox + parsed;
         }
+      } else {
+        itemBody += parsed;
       }
-      itemBody += this.parser.parse(item.tokens, !!item.loose);
-      body += injectLineAttr(`<li>${itemBody}</li>\n`, itemWithLine._line);
+      const liClass = item.task ? ' class="task-list-item"' : "";
+      body += injectLineAttr(`<li${liClass}>${itemBody}</li>\n`, itemWithLine._line);
     }
     const type = ordered ? "ol" : "ul";
     const startAttr = ordered && start !== 1 ? ` start="${start}"` : "";
-    return `<${type}${startAttr}>\n${body}</${type}>\n`;
+    const taskClass = hasTaskItems ? ' class="contains-task-list"' : "";
+    return `<${type}${startAttr}${taskClass}>\n${body}</${type}>\n`;
   },
   paragraph(this: { parser: { parseInline(tokens: Token[]): string } }, token: Tokens.Paragraph & { _line?: number }) {
     return injectLineAttr(`<p>${this.parser.parseInline(token.tokens)}</p>\n`, token._line);
