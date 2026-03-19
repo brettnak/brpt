@@ -180,12 +180,12 @@ const lineRenderer = {
       } else {
         itemBody += parsed;
       }
-      const liClass = item.task ? ' class="task-list-item"' : "";
+      const liClass = item.task && !ordered ? ' class="task-list-item"' : "";
       body += injectLineAttr(`<li${liClass}>${itemBody}</li>\n`, itemWithLine._line);
     }
     const type = ordered ? "ol" : "ul";
     const startAttr = ordered && start !== 1 ? ` start="${start}"` : "";
-    const taskClass = hasTaskItems ? ' class="contains-task-list"' : "";
+    const taskClass = hasTaskItems && !ordered ? ' class="contains-task-list"' : "";
     return `<${type}${startAttr}${taskClass}>\n${body}</${type}>\n`;
   },
   paragraph(this: { parser: { parseInline(tokens: Token[]): string } }, token: Tokens.Paragraph & { _line?: number }) {
