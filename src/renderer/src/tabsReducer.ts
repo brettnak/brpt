@@ -32,10 +32,11 @@ export function tabsReducer(state: TabsState, action: TabsAction): TabsState {
     case "OPEN_FILE": {
       const { data } = action;
       const existing = state.tabs.findIndex((t) => t.path === data.path);
+      const now = Temporal.Now.instant();
       if (existing !== -1) {
         const tabs = [...state.tabs];
         const tab = tabs[existing] as MarkdownTab;
-        tabs[existing] = { ...tab, content: data.content, removed: false };
+        tabs[existing] = { ...tab, content: data.content, removed: false, lastActivatedAt: now };
         return { tabs, activeIndex: existing };
       }
       const newTab: Tab = {
@@ -47,6 +48,7 @@ export function tabsReducer(state: TabsState, action: TabsAction): TabsState {
         lastModifiedAt: Temporal.Instant.fromEpochMilliseconds(
           Math.floor(data.mtimeMs),
         ),
+        lastActivatedAt: now,
         hasUnseenChanges: false,
         notifications: [],
         unreadNotificationCount: 0,
@@ -58,6 +60,7 @@ export function tabsReducer(state: TabsState, action: TabsAction): TabsState {
     case "OPEN_DIFF": {
       const { data } = action;
       const existing = state.tabs.findIndex((t) => t.path === data.newPath);
+      const now = Temporal.Now.instant();
       if (existing !== -1) {
         const tabs = [...state.tabs];
         const tab = tabs[existing] as DiffTab;
@@ -67,6 +70,7 @@ export function tabsReducer(state: TabsState, action: TabsAction): TabsState {
           newContent: data.newContent,
           oldContent: data.oldContent,
           removed: false,
+          lastActivatedAt: now,
         };
         return { tabs, activeIndex: existing };
       }
@@ -80,6 +84,7 @@ export function tabsReducer(state: TabsState, action: TabsAction): TabsState {
         diff: data.diff,
         scrollTop: 0,
         lastModifiedAt: Temporal.Instant.fromEpochMilliseconds(Math.floor(data.mtimeMs)),
+        lastActivatedAt: now,
         hasUnseenChanges: false,
         notifications: [],
         unreadNotificationCount: 0,
@@ -221,7 +226,9 @@ export function tabsReducer(state: TabsState, action: TabsAction): TabsState {
       if (index === -1 || index === state.activeIndex) {
         return state;
       }
-      return { tabs: state.tabs, activeIndex: index };
+      const tabs = [...state.tabs];
+      tabs[index] = { ...tabs[index], lastActivatedAt: Temporal.Now.instant() };
+      return { tabs, activeIndex: index };
     }
 
     case "SET_NOTIFICATIONS": {

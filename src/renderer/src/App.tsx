@@ -100,10 +100,12 @@ export default function App(): ReactNode {
 
   const openFile = useCallback((data: FileData) => {
     dispatch({ type: "OPEN_FILE", data });
+    mdview.tabActivated(data.path);
   }, []);
 
   const openDiff = useCallback((data: DiffData) => {
     dispatch({ type: "OPEN_DIFF", data });
+    mdview.tabActivated(data.newPath);
   }, []);
 
   const closeTab = useCallback(
@@ -424,6 +426,7 @@ export default function App(): ReactNode {
       mdview.onConfigLoaded(applyConfig),
       mdview.onActivateFile((path: string) => {
         dispatch({ type: "ACTIVATE_FILE_BY_PATH", path });
+        mdview.tabActivated(path);
       }),
     ];
     return () => unsubs.forEach((fn) => fn());
