@@ -21,6 +21,8 @@ import type {
 
 const DEFAULT_CONFIG: AppConfig = {
   theme: "light",
+  lightPalette: "github-light",
+  darkPalette: "github-dark",
   containerFolders: [],
   contentWidth: {
     mode: "fixed",
@@ -523,7 +525,10 @@ CONFIGURATION
     the app and generally should not be edited by hand, but relevant
     fields include:
 
-    theme                    "light" or "dark"
+    theme                    "light", "dark", or "system" (mode)
+    lightPalette             palette id used in light mode (e.g.
+                             "github-light", "solarized-light")
+    darkPalette              palette id used in dark mode
     openFiles                Persisted tab state (restored on launch)
     containerFolders         Project roots for grouping tabs in sidebar
     brpt_development_roots   Paths to brpt source checkouts (for dev

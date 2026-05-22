@@ -6,21 +6,29 @@ import type { Annotation, ContentWidthConfig, ContentWidthMode, MarkdownTab, Vie
 import { AnnotationGutter, type GutterLine } from "../AnnotationGutter";
 import { useCurrentHeading } from "../../useCurrentHeading";
 import { SegmentedControl } from "../ui-elements/SegmentedControl";
+import { defaultPaletteForMode, paletteById, paletteMermaidVars, type Palette } from "../../themes";
 
 mermaid.initialize({ startOnLoad: false, theme: "default" });
 
-function useBodyTheme(): "light" | "dark" {
-  const [theme, setTheme] = useState<"light" | "dark">(
-    () => (document.body.dataset.theme as "light" | "dark") || "light",
-  );
+function readBodyPalette(): Palette {
+  const id = document.body.dataset.palette;
+  const mode = (document.body.dataset.theme as "light" | "dark") || "light";
+  return (id && paletteById(id)) || defaultPaletteForMode(mode);
+}
+
+function useActivePalette(): Palette {
+  const [palette, setPalette] = useState<Palette>(() => readBodyPalette());
   useEffect(() => {
     const observer = new MutationObserver(() => {
-      setTheme((document.body.dataset.theme as "light" | "dark") || "light");
+      setPalette(readBodyPalette());
     });
-    observer.observe(document.body, { attributes: true, attributeFilter: ["data-theme"] });
+    observer.observe(document.body, {
+      attributes: true,
+      attributeFilter: ["data-theme", "data-palette"],
+    });
     return () => observer.disconnect();
   }, []);
-  return theme;
+  return palette;
 }
 
 const { mdview } = window;
@@ -208,7 +216,7 @@ export function MarkdownContent({
   contentElRef,
   findMatchLines,
 }: MarkdownContentProps): ReactNode {
-  const appTheme = useBodyTheme();
+  const activePalette = useActivePalette();
   const [contentEl, setContentEl] = useState<HTMLDivElement | null>(null);
 
   const combinedRef = useCallback((el: HTMLDivElement | null) => {
@@ -272,8 +280,14 @@ export function MarkdownContent({
       block.querySelector(".mermaid-error")?.remove();
     }
 
-    const mermaidTheme = appTheme === "dark" ? "dark" : "default";
-    mermaid.initialize({ startOnLoad: false, theme: mermaidTheme });
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: "base",
+      themeVariables: {
+        darkMode: activePalette.mode === "dark",
+        ...paletteMermaidVars(activePalette),
+      },
+    });
 
     let cancelled = false;
 
@@ -315,7 +329,7 @@ export function MarkdownContent({
     return () => {
       cancelled = true;
     };
-  }, [renderedHtml, appTheme]);
+  }, [renderedHtml, activePalette]);
 
   // Ref so the injection effect can read collapsed state without re-running on changes
   const collapsedRef = useRef(collapsedInsertionLines);

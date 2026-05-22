@@ -19,7 +19,7 @@ interface SidebarProps {
   onActivateTab: (index: number) => void;
   onCloseTab: (index: number) => void;
   onOpenDialog: () => void;
-  onToggleTheme: () => void;
+  onOpenThemePicker: () => void;
   onDrop: (e: React.DragEvent) => void;
   onResize: (width: number) => void;
   onReorderTab: (fromIndex: number, toIndex: number) => void;
@@ -176,7 +176,7 @@ export function Sidebar({
   onActivateTab,
   onCloseTab,
   onOpenDialog,
-  onToggleTheme,
+  onOpenThemePicker,
   onDrop,
   onResize,
   onReorderTab,
@@ -417,8 +417,8 @@ export function Sidebar({
             +
           </button>
           <button
-            onClick={onToggleTheme}
-            title="Toggle theme"
+            onClick={onOpenThemePicker}
+            title="Theme..."
             className={classNames(
               "bg-[var(--btn-bg)] border-none text-[var(--btn-text)] cursor-pointer",
               "text-lg w-8 h-8 rounded-md flex items-center justify-center",

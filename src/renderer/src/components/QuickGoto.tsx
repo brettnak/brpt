@@ -192,7 +192,7 @@ export function QuickGoto({
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder={commandMode ? "Run command..." : showingMru ? "Recent tabs — type to search all..." : "Go to tab..."}
+          placeholder={commandMode ? "Run command..." : showingMru ? 'Recent tabs — ">" for commands, or type to search...' : '">" for commands, or type to search...'}
           className="w-full px-3 py-2 text-sm bg-transparent border-none outline-none"
           style={{ color: "var(--tab-active-text)" }}
         />

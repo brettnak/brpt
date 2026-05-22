@@ -35,6 +35,8 @@ import type {
 } from "./types";
 import { groupTabs } from "./groupTabs";
 import { useThemeStyles } from "./useThemeStyles";
+import { defaultPaletteForMode, paletteById } from "./themes";
+import { ThemePicker, type ThemeMode } from "./components/ThemePicker";
 
 const { mdview } = window;
 
@@ -43,7 +45,13 @@ export default function App(): ReactNode {
     tabsReducer,
     initialTabsState,
   );
-  const [theme, setTheme] = useState<"light" | "dark">("light");
+  const [themeMode, setThemeModeState] = useState<ThemeMode>("light");
+  const [lightPaletteId, setLightPaletteIdState] = useState<string>("github-light");
+  const [darkPaletteId, setDarkPaletteIdState] = useState<string>("github-dark");
+  const [systemPrefersDark, setSystemPrefersDark] = useState<boolean>(
+    () => window.matchMedia("(prefers-color-scheme: dark)").matches,
+  );
+  const [themePickerOpen, setThemePickerOpen] = useState(false);
   const [containerFolders, setContainerFolders] = useState<string[]>([]);
   const [projects, setProjects] = useState<ProjectEntry[]>([]);
   const [contentWidth, setContentWidth] = useState<ContentWidthConfig>({
@@ -169,13 +177,30 @@ export default function App(): ReactNode {
     });
   }, []);
 
-  const toggleTheme = useCallback(() => {
-    setTheme((prev) => {
-      const next = prev === "dark" ? "light" : "dark";
-      mdview.setConfig("theme", next);
-      return next;
-    });
+  const setThemeMode = useCallback((mode: ThemeMode) => {
+    setThemeModeState(mode);
+    mdview.setConfig("theme", mode);
   }, []);
+
+  const setLightPaletteId = useCallback((id: string) => {
+    setLightPaletteIdState(id);
+    mdview.setConfig("lightPalette", id);
+  }, []);
+
+  const setDarkPaletteId = useCallback((id: string) => {
+    setDarkPaletteIdState(id);
+    mdview.setConfig("darkPalette", id);
+  }, []);
+
+  const openThemePicker = useCallback(() => {
+    setThemePickerOpen(true);
+  }, []);
+
+  const resolvedMode: "light" | "dark" =
+    themeMode === "system" ? (systemPrefersDark ? "dark" : "light") : themeMode;
+  const activePaletteId = resolvedMode === "dark" ? darkPaletteId : lightPaletteId;
+  const activePalette =
+    paletteById(activePaletteId) ?? defaultPaletteForMode(resolvedMode);
 
   const handleRetryRemoved = useCallback(
     async (path: string) => {
@@ -381,7 +406,9 @@ export default function App(): ReactNode {
 
   const applyConfig = useCallback((config: AppConfig) => {
     configLoaded.current = true;
-    if (config.theme) { setTheme(config.theme); }
+    if (config.theme) { setThemeModeState(config.theme); }
+    if (config.lightPalette) { setLightPaletteIdState(config.lightPalette); }
+    if (config.darkPalette) { setDarkPaletteIdState(config.darkPalette); }
     if (config.containerFolders) { setContainerFolders(config.containerFolders); }
     if (config.projects) { setProjects(config.projects); }
     if (config.groupOrder) { setGroupOrder(config.groupOrder); }
@@ -585,11 +612,21 @@ export default function App(): ReactNode {
   }, [activeIndex]);
 
   // Apply theme to document and toggle stylesheets
-  useThemeStyles(theme);
+  useThemeStyles(activePalette);
   useEffect(() => {
-    document.body.setAttribute("data-theme", theme);
-    document.documentElement.classList.toggle("dark", theme === "dark");
-  }, [theme]);
+    document.body.setAttribute("data-theme", resolvedMode);
+    document.body.setAttribute("data-palette", activePalette.id);
+    document.documentElement.classList.toggle("dark", resolvedMode === "dark");
+  }, [resolvedMode, activePalette.id]);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    const handler = (e: MediaQueryListEvent): void => {
+      setSystemPrefersDark(e.matches);
+    };
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
 
   const paletteCommands = useMemo<Command[]>(() => [
     { id: "prune-tabs", label: "Prune Tabs", detail: `Close all except ${pruneKeepCount} most recent`, action: pruneTabs },
@@ -599,8 +636,8 @@ export default function App(): ReactNode {
     { id: "width-fixed", label: "Content Width: Fixed", detail: "Fixed width mode", action: () => changeContentWidthMode("fixed") },
     { id: "width-capped", label: "Content Width: Capped", detail: "Capped width mode", action: () => changeContentWidthMode("capped") },
     { id: "width-full", label: "Content Width: Full", detail: "Full width mode", action: () => changeContentWidthMode("full") },
-    { id: "toggle-theme", label: "Toggle Theme", detail: "Switch between light and dark", action: toggleTheme },
-  ], [toggleTheme, toggleSidebar, toggleDrawer, pruneTabs, handleOpenDialog, changeContentWidthMode, pruneKeepCount]);
+    { id: "open-theme-picker", label: "Theme...", detail: "Pick light/dark palettes and mode", action: openThemePicker },
+  ], [openThemePicker, toggleSidebar, toggleDrawer, pruneTabs, handleOpenDialog, changeContentWidthMode, pruneKeepCount]);
 
   return (
     <>
@@ -620,7 +657,7 @@ export default function App(): ReactNode {
           onActivateTab={activateTab}
           onCloseTab={closeTab}
           onOpenDialog={handleOpenDialog}
-          onToggleTheme={toggleTheme}
+          onOpenThemePicker={openThemePicker}
           onDrop={handleDrop}
           onResize={handleSidebarResize}
           onReorderTab={reorderTab}
@@ -722,7 +759,7 @@ export default function App(): ReactNode {
         lastModifiedAt={activeTab?.lastModifiedAt ?? null}
         draggablePath={capabilities.draggablePath}
       />
-      <Toaster theme={theme} position="bottom-center" style={{ bottom: "28px" }} />
+      <Toaster theme={resolvedMode} position="bottom-center" style={{ bottom: "28px" }} />
       {quickGotoOpen && (
         <QuickGoto
           tabs={tabs}
@@ -740,6 +777,18 @@ export default function App(): ReactNode {
             documentSearch.clear();
             setFindOpen(false);
           }}
+        />
+      )}
+      {themePickerOpen && (
+        <ThemePicker
+          mode={themeMode}
+          lightPaletteId={lightPaletteId}
+          darkPaletteId={darkPaletteId}
+          systemPrefersDark={systemPrefersDark}
+          onChangeMode={setThemeMode}
+          onChangeLightPalette={setLightPaletteId}
+          onChangeDarkPalette={setDarkPaletteId}
+          onClose={() => setThemePickerOpen(false)}
         />
       )}
     </>

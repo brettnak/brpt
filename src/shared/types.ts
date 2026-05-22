@@ -56,7 +56,9 @@ export type OpenEntry = string | OpenFileEntry;
 export type ProjectEntry = string | { path: string; alias?: string };
 
 export interface AppConfig {
-  theme: "light" | "dark";
+  theme: "light" | "dark" | "system";
+  lightPalette?: string;
+  darkPalette?: string;
   containerFolders: string[];
   projects?: ProjectEntry[];
   groupOrder?: string[];
