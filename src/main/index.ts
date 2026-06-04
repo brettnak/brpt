@@ -362,7 +362,7 @@ type CliResult =
   | { kind: "diff"; newFile: string; patchFile: string; foreground: boolean }
   | { kind: "diff-files"; newFile: string; oldFile: string; foreground: boolean }
   | { kind: "notify"; target: string; message?: string; messageFile?: string; foreground: boolean }
-  | { kind: "annotate-add"; target: string; startLine: number; endLine: number; message: string; messageFile?: string; source?: string; foreground: boolean }
+  | { kind: "annotate-add"; target: string; startLine: number; endLine: number; message?: string; messageFile?: string; source?: string; foreground: boolean }
   | { kind: "annotate-import"; target: string; importFile: string; foreground: boolean }
   | { kind: "annotate-remove"; target: string; annotationId: string; foreground: boolean }
   | { kind: "annotate-clear"; target: string; foreground: boolean }
@@ -609,14 +609,14 @@ function buildCliProgram(): { program: Command; getResult: () => CliResult } {
     });
 
   program
-    .command("notify <target> <message>")
+    .command("notify <target> [message]")
     .description(
       "send a notification to a file tab.\n" +
       "Pass - as <message> to read from stdin (via the brpt launcher).\n" +
       "Pass --message-file to read from a file.",
     )
     .option("--message-file <path>", "path to file containing notification body (markdown)")
-    .action((target: string, message: string, opts: { messageFile?: string }, cmd: Command) => {
+    .action((target: string, message: string | undefined, opts: { messageFile?: string }, cmd: Command) => {
       const globals = cmd.optsWithGlobals();
       const cwd = globals.cwd || process.cwd();
       result = {
@@ -633,7 +633,7 @@ function buildCliProgram(): { program: Command; getResult: () => CliResult } {
     .description("manage annotations on file tabs");
 
   annotate
-    .command("add <target> <line> <message>")
+    .command("add <target> <line> [message]")
     .description(
       "add an annotation at a line or line range (start:end).\n" +
       "Pass - as <message> to read from stdin (via the brpt launcher).\n" +
@@ -641,7 +641,7 @@ function buildCliProgram(): { program: Command; getResult: () => CliResult } {
     )
     .option("--message-file <path>", "path to file containing annotation body (markdown)")
     .option("--source <name>", "optional source identifier (e.g. agent name, tool name)")
-    .action((target: string, line: string, message: string, opts: { messageFile?: string; source?: string }, cmd: Command) => {
+    .action((target: string, line: string, message: string | undefined, opts: { messageFile?: string; source?: string }, cmd: Command) => {
       const globals = cmd.optsWithGlobals();
       const cwd = globals.cwd || process.cwd();
       const range = parseLineRange(line);
