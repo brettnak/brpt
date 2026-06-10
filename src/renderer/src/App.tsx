@@ -5,6 +5,7 @@ import { DEFAULT_DRAWER_WIDTH, NotificationDrawer } from "./components/Notificat
 import { QuickGoto, type Command } from "./components/QuickGoto";
 import { Sidebar } from "./components/Sidebar";
 import { StatusBar } from "./components/StatusBar";
+import { TitleBar } from "./components/TitleBar";
 import { DrawerToggle, SidebarToggle, TopBar } from "./components/TopBar";
 import { FindBar } from "./components/FindBar";
 import {
@@ -572,6 +573,11 @@ export default function App(): ReactNode {
         setFindOpen(true);
         return;
       }
+      if (mod && (e.key === "b" || e.key === "k")) {
+        e.preventDefault();
+        toggleSidebar();
+        return;
+      }
       if (mod && e.shiftKey && e.key === "[") {
         e.preventDefault();
         const target = adjacentVisualTab(-1);
@@ -601,7 +607,7 @@ export default function App(): ReactNode {
     }
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [activeIndex, tabs, projects, containerFolders, groupOrder, closeTab, handleOpenDialog, activateTab, openFile, quickGotoOpen, findOpen]);
+  }, [activeIndex, tabs, projects, containerFolders, groupOrder, closeTab, handleOpenDialog, activateTab, openFile, toggleSidebar, quickGotoOpen, findOpen]);
 
   useEffect(() => {
     if (findOpen) {
@@ -639,11 +645,19 @@ export default function App(): ReactNode {
     { id: "open-theme-picker", label: "Theme...", detail: "Pick light/dark palettes and mode", action: openThemePicker },
   ], [openThemePicker, toggleSidebar, toggleDrawer, pruneTabs, handleOpenDialog, changeContentWidthMode, pruneKeepCount]);
 
+  const windowTitle = activeTab
+    ? activeTab.path.split("/").pop() ?? activeTab.path
+    : "Brett's Rad Preview Tool";
+
   return (
     <>
+      <TitleBar title={windowTitle} />
       <div
-        className="flex h-[calc(100vh-28px)]"
-        style={{ background: "var(--bg)" }}
+        className="flex"
+        style={{
+          background: "var(--bg)",
+          height: "calc(100vh - var(--title-bar-height) - 28px)",
+        }}
       >
         <Sidebar
           tabs={tabs}

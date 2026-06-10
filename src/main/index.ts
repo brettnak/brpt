@@ -1058,6 +1058,8 @@ function createWindow(): void {
     minHeight: 300,
     ...(useSaved ? { x: saved.x, y: saved.y } : {}),
     title: "Brett's Rad Preview Tool",
+    titleBarStyle: "hidden",
+    trafficLightPosition: { x: 16, y: 12 },
     webPreferences: {
       preload: join(__dirname, "../preload/index.mjs"),
       contextIsolation: true,
