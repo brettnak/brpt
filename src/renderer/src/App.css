@@ -535,6 +535,7 @@ body[data-palette="mint-sage"] .markdown-body table td {
 
 * {
   scrollbar-width: thin;
+  scrollbar-color: var(--sidebar-border) transparent;
 }
 
 .sidebar-scroll--top {
