@@ -21,7 +21,9 @@ mac:
 linux:
   icon: icon.iconset/icon_512x512.png
   category: Development
-  target: AppImage
+  target:
+    - target: AppImage
+      arch: [arm64]
   artifactName: brpt.${ext}
   desktop:
     MimeType: text/markdown

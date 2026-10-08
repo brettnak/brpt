@@ -16,6 +16,7 @@
     "build:mac:install": "npm run build:mac && npm run install:mac",
     "build:linux": "electron-vite build && electron-builder --linux",
     "install:linux": "bash scripts/install-linux.sh",
+    "install:linux:stacks": "bash scripts/install-linux.sh ../minca-stacks/shared/brpt",
     "uninstall:linux": "bash scripts/uninstall-linux.sh",
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json --composite false",
     "typecheck:web": "tsc --noEmit -p tsconfig.web.json --composite false",

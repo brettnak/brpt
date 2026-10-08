@@ -33,6 +33,7 @@ install_files() {
     chmod +x "$dir/brpt.AppImage"
     cp resources/brpt "$dir/brpt"
     chmod +x "$dir/brpt"
+    cp icon.iconset/icon_512x512.png "$dir/brpt.png"
 }
 
 if install_files "$INSTALL_DIR" 2>/dev/null; then
@@ -44,6 +45,7 @@ else
     sudo chmod +x "$INSTALL_DIR/brpt.AppImage"
     sudo cp resources/brpt "$INSTALL_DIR/brpt"
     sudo chmod +x "$INSTALL_DIR/brpt"
+    sudo cp icon.iconset/icon_512x512.png "$INSTALL_DIR/brpt.png"
     echo "Installed to $INSTALL_DIR (with sudo)"
 fi
 
