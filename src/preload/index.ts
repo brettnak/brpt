@@ -3,8 +3,8 @@ import hljs from "highlight.js";
 import { Marked, type Token, type Tokens } from "marked";
 import { markedHighlight } from "marked-highlight";
 import os from "os";
-import type { Annotation, AppConfig, BrptNotification, DiffData, FileData, OpenEntry, SidecarExtras, Store } from "../shared/types";
-export type { AppConfig, BrptNotification, DiffData, FileData, OpenEntry, SidecarExtras, Store };
+import type { Annotation, AppConfig, BrptNotification, DiffData, FileData, LinkResult, OpenEntry, SidecarExtras, Store } from "../shared/types";
+export type { AppConfig, BrptNotification, DiffData, FileData, LinkResult, OpenEntry, SidecarExtras, Store };
 
 export interface MdviewApi {
   renderMarkdown(text: string, startLine?: number): string;
@@ -18,6 +18,7 @@ export interface MdviewApi {
   onActivateFile(callback: (path: string) => void): () => void;
   openFileDialog(): Promise<FileData[]>;
   requestFile(filePath: string): Promise<FileData | null>;
+  followLink(sourcePath: string, href: string, rootPath: string | null): Promise<LinkResult>;
   requestDiff(newPath: string, diffPath: string): Promise<DiffData | null>;
   requestDiffByFiles(newPath: string, oldPath: string): Promise<DiffData | null>;
   closeFile(filePath: string): void;
@@ -324,7 +325,9 @@ const api: MdviewApi = {
   openFileDialog: () => ipcRenderer.invoke("open-file-dialog"),
   requestFile: (filePath: string) =>
     ipcRenderer.invoke("request-file", filePath),
-  requestDiff: (newPath: string, diffPath: string) =>
+  followLink: (sourcePath: string, href: string, rootPath: string | null) =>
+    ipcRenderer.invoke("follow-link", sourcePath, href, rootPath),
+  requestDiff:(newPath: string, diffPath: string) =>
     ipcRenderer.invoke("request-diff", newPath, diffPath),
   requestDiffByFiles: (newPath: string, oldPath: string) =>
     ipcRenderer.invoke("request-diff-by-files", newPath, oldPath),

@@ -9,6 +9,7 @@ export type {
   DiffData,
   DiffMode,
   FileData,
+  LinkResult,
   OpenEntry,
   OpenFileEntry,
   ProjectEntry,

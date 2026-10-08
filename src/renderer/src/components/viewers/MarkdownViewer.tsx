@@ -165,6 +165,64 @@ export function resolveMarkdownLineNumber(node: Node): number | null {
   return isNaN(line) ? null : line;
 }
 
+/**
+ * GitHub's heading anchor algorithm: lowercase, drop everything except
+ * letters, marks, numbers, underscores, hyphens, and spaces, then turn each
+ * space into a hyphen.
+ */
+function headingSlug(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[^\p{L}\p{M}\p{N}\p{Pc} -]/gu, "")
+    .replace(/ /g, "-");
+}
+
+function decodeFragment(fragment: string): string {
+  try {
+    return decodeURIComponent(fragment);
+  } catch {
+    return fragment;
+  }
+}
+
+/**
+ * Finds the element a `#fragment` link points at: an explicit `id`/`name`
+ * anchor from raw HTML, or a heading whose GitHub-style slug matches.
+ * Repeated headings get `-1`, `-2`, ... suffixes, as on GitHub.
+ */
+export function findMarkdownFragment(contentEl: HTMLElement, fragment: string): HTMLElement | null {
+  const target = decodeFragment(fragment);
+  const escaped = CSS.escape(target);
+  const explicit = contentEl.querySelector<HTMLElement>(`[id="${escaped}"], a[name="${escaped}"]`);
+  if (explicit) {
+    return explicit;
+  }
+
+  const wanted = target.toLowerCase();
+  const occurrences = new Map<string, number>();
+  const headings = contentEl.querySelectorAll<HTMLElement>("h1, h2, h3, h4, h5, h6");
+  for (const heading of headings) {
+    if (heading.closest(".annotation-block")) {
+      continue;
+    }
+    const base = headingSlug(heading.textContent ?? "");
+    let slug = base;
+    while (occurrences.has(slug)) {
+      const next = occurrences.get(base)! + 1;
+      occurrences.set(base, next);
+      slug = `${base}-${next}`;
+    }
+    occurrences.set(slug, 0);
+    if (slug === wanted) {
+      return heading;
+    }
+  }
+  return null;
+}
+
+/** Matches hrefs with a URL scheme (`https:`, `mailto:`, `file:`, ...). */
+const URL_SCHEME = /^[a-z][a-z\d+.-]*:/i;
+
 function measureMarkdownLines(contentEl: HTMLElement, gutterEl: HTMLElement): GutterLine[] {
   const gutterRect = gutterEl.getBoundingClientRect();
   const allElements = contentEl.querySelectorAll<HTMLElement>("[data-source-line]");
@@ -208,6 +266,8 @@ interface MarkdownContentProps {
   contentWidth: ContentWidthConfig;
   contentElRef: (el: HTMLDivElement | null) => void;
   findMatchLines?: Set<number>;
+  onFollowLink: (sourcePath: string, href: string) => void;
+  onHoverLink: (href: string | null) => void;
 }
 
 export function MarkdownContent({
@@ -215,6 +275,8 @@ export function MarkdownContent({
   contentWidth,
   contentElRef,
   findMatchLines,
+  onFollowLink,
+  onHoverLink,
 }: MarkdownContentProps): ReactNode {
   const activePalette = useActivePalette();
   const [contentEl, setContentEl] = useState<HTMLDivElement | null>(null);
@@ -469,6 +531,43 @@ export function MarkdownContent({
     contentEl.addEventListener("click", handler);
     return () => contentEl.removeEventListener("click", handler);
   }, [contentEl, tab.path]);
+
+  // Relative links and #fragments are followed inside brpt. Links with a URL
+  // scheme keep their default navigation, which the main process opens externally.
+  useEffect(() => {
+    if (!contentEl) {
+      return;
+    }
+    const handler = (e: MouseEvent) => {
+      const href = (e.target as Element).closest("a")?.getAttribute("href");
+      if (!href || URL_SCHEME.test(href) || href.startsWith("//")) {
+        return;
+      }
+      e.preventDefault();
+      onFollowLink(tab.path, href);
+    };
+    contentEl.addEventListener("click", handler);
+    return () => contentEl.removeEventListener("click", handler);
+  }, [contentEl, tab.path, onFollowLink]);
+
+  // Report the raw href of the link under the cursor. Cleared on leave and when
+  // the tab changes, since the link under the cursor is gone after following it.
+  useEffect(() => {
+    if (!contentEl) {
+      return;
+    }
+    const handleOver = (e: MouseEvent) => {
+      onHoverLink((e.target as Element).closest("a")?.getAttribute("href") ?? null);
+    };
+    const handleLeave = () => onHoverLink(null);
+    contentEl.addEventListener("mouseover", handleOver);
+    contentEl.addEventListener("mouseleave", handleLeave);
+    return () => {
+      contentEl.removeEventListener("mouseover", handleOver);
+      contentEl.removeEventListener("mouseleave", handleLeave);
+      onHoverLink(null);
+    };
+  }, [contentEl, tab.path, onHoverLink]);
 
   const contentStyle: React.CSSProperties = (() => {
     switch (contentWidth.mode) {

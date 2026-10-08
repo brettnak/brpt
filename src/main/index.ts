@@ -13,6 +13,7 @@ import type {
   BrptNotification,
   DiffData,
   FileData,
+  LinkResult,
   OpenEntry,
   SavedDiff,
   SidecarExtras,
@@ -139,6 +140,78 @@ function readFile(filePath: string): { content: string; mtimeMs: number } | null
   } catch {
     return null;
   }
+}
+
+const MARKDOWN_EXTENSION = /\.(md|markdown)$/i;
+
+/**
+ * Splits a relative link href into its path and fragment, dropping any query
+ * string. The path is percent-decoded so `my%20notes.md` resolves to a real file.
+ */
+function splitLinkHref(href: string): { linkPath: string; fragment: string | null } {
+  const hashIndex = href.indexOf("#");
+  const fragment = hashIndex === -1 ? null : href.slice(hashIndex + 1);
+  const withoutFragment = hashIndex === -1 ? href : href.slice(0, hashIndex);
+  const queryIndex = withoutFragment.indexOf("?");
+  const rawPath = queryIndex === -1 ? withoutFragment : withoutFragment.slice(0, queryIndex);
+  try {
+    return { linkPath: decodeURIComponent(rawPath), fragment };
+  } catch {
+    return { linkPath: rawPath, fragment };
+  }
+}
+
+/**
+ * Paths starting with `/` resolve against `rootPath` (the source file's project
+ * root). If that file doesn't exist but the path exists as a filesystem path,
+ * the filesystem path wins, so links like `/Users/me/notes.md` keep working.
+ * Without a root, `/` paths are filesystem paths. Everything else resolves
+ * against the source file's directory.
+ */
+function resolveLinkPath(sourcePath: string, linkPath: string, rootPath: string | null): string {
+  if (!linkPath.startsWith("/")) {
+    return resolve(dirname(sourcePath), linkPath);
+  }
+  if (!rootPath) {
+    return resolve(linkPath);
+  }
+  const rootRelative = join(rootPath, linkPath);
+  if (!fs.existsSync(rootRelative) && fs.existsSync(linkPath)) {
+    return resolve(linkPath);
+  }
+  return rootRelative;
+}
+
+/**
+ * Follows a link from a markdown document. Markdown targets are read and
+ * returned so the renderer can open them as a tab; anything else is handed to
+ * the system opener (`open` on macOS, xdg-open on Linux).
+ */
+async function followLink(sourcePath: string, href: string, rootPath: string | null): Promise<LinkResult> {
+  const { linkPath, fragment } = splitLinkHref(href);
+  const resolvedPath = resolveLinkPath(sourcePath, linkPath, rootPath);
+
+  let stat: fs.Stats;
+  try {
+    stat = fs.statSync(resolvedPath);
+  } catch {
+    return { kind: "missing", resolvedPath };
+  }
+
+  if (stat.isFile() && MARKDOWN_EXTENSION.test(resolvedPath)) {
+    const file = readFile(resolvedPath);
+    if (!file) {
+      return { kind: "open-failed", resolvedPath, error: "The file could not be read." };
+    }
+    watchFile(resolvedPath);
+    return { kind: "markdown", file: { path: resolvedPath, ...file }, fragment };
+  }
+
+  const error = await shell.openPath(resolvedPath);
+  if (error) {
+    return { kind: "open-failed", resolvedPath, error };
+  }
+  return { kind: "opened" };
 }
 
 function sidecarPathFor(targetPath: string): string {
@@ -1255,6 +1328,10 @@ ipcMain.handle("request-file", (_event, filePath: string) => {
     return { path: abs, ...file };
   }
   return null;
+});
+
+ipcMain.handle("follow-link", (_event, sourcePath: string, href: string, rootPath: string | null) => {
+  return followLink(sourcePath, href, rootPath);
 });
 
 ipcMain.handle("request-diff", (_event, newPath: string, diffPath: string) => {

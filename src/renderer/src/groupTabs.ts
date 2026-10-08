@@ -15,7 +15,7 @@ function expandPath(p: string): string {
   return p;
 }
 
-function getTabGroup(
+export function getTabGroup(
   filePath: string,
   projects: ProjectEntry[],
   containerFolders: string[],

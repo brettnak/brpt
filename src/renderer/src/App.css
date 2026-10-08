@@ -949,3 +949,24 @@ body[data-theme="dark"] .gutter-line-entry--html-block::before {
 .diff-viewer .d2h-file-wrapper {
   border-color: var(--sidebar-border);
 }
+
+/** Toasts use the active palette's chrome colors instead of sonner's light/dark defaults */
+body [data-sonner-toaster][data-sonner-theme] {
+  --normal-bg: var(--sidebar-bg);
+  --normal-border: var(--sidebar-border);
+  --normal-text: var(--tab-active-text);
+  --normal-bg-hover: var(--tab-hover-bg);
+  --normal-border-hover: var(--sidebar-border);
+}
+
+body [data-sonner-toaster] [data-sonner-toast][data-styled="true"] [data-description] {
+  color: var(--tab-text);
+}
+
+body [data-sonner-toaster] [data-sonner-toast][data-type="error"] {
+  border-left: 3px solid var(--annotation-marker);
+}
+
+body [data-sonner-toaster] [data-sonner-toast][data-type="error"] [data-icon] {
+  color: var(--annotation-marker);
+}

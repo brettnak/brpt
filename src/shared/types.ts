@@ -77,6 +77,13 @@ export interface FileData {
   mtimeMs: number;
 }
 
+/** Outcome of following a relative link from a markdown document. */
+export type LinkResult =
+  | { kind: "markdown"; file: FileData; fragment: string | null }
+  | { kind: "opened" }
+  | { kind: "missing"; resolvedPath: string }
+  | { kind: "open-failed"; resolvedPath: string; error: string };
+
 export interface DiffData {
   mode: DiffMode;
   newPath: string;

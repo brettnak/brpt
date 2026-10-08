@@ -16,6 +16,7 @@ import {
   useDiffViewMode,
 } from "./components/viewers/DiffViewer";
 import {
+  findMarkdownFragment,
   MarkdownContent,
   MarkdownTopBarContent,
   markdownCapabilities,
@@ -34,12 +35,28 @@ import type {
   ProjectEntry,
   SavedDiff,
 } from "./types";
-import { groupTabs } from "./groupTabs";
+import { getTabGroup, groupTabs } from "./groupTabs";
 import { useThemeStyles } from "./useThemeStyles";
 import { defaultPaletteForMode, paletteById } from "./themes";
 import { ThemePicker, type ThemeMode } from "./components/ThemePicker";
 
 const { mdview } = window;
+
+interface LinkToastDetailProps {
+  href: string;
+  resolvedPath: string;
+  error?: string;
+}
+
+function LinkToastDetail({ href, resolvedPath, error }: LinkToastDetailProps): ReactNode {
+  return (
+    <div className="break-all">
+      <div>Link: <code>{href}</code></div>
+      <div>Resolved to: <code>{resolvedPath}</code></div>
+      {error && <div>{error}</div>}
+    </div>
+  );
+}
 
 export default function App(): ReactNode {
   const [{ tabs, activeIndex }, dispatch] = useReducer(
@@ -66,6 +83,8 @@ export default function App(): ReactNode {
   const [quickGotoHighlight, setQuickGotoHighlight] = useState<number | null>(null);
   const [findOpen, setFindOpen] = useState(false);
   const [contentEl, setContentEl] = useState<HTMLDivElement | null>(null);
+  const [pendingFragment, setPendingFragment] = useState<{ path: string; fragment: string } | null>(null);
+  const [hoveredLink, setHoveredLink] = useState<string | null>(null);
 
   const mruTabs = useMemo(() => {
     return tabs
@@ -103,6 +122,11 @@ export default function App(): ReactNode {
     return null;
   }, [activeTab]);
 
+  const findFragment = useMemo(() => {
+    if (activeTab?.kind === "markdown") { return findMarkdownFragment; }
+    return null;
+  }, [activeTab]);
+
   const documentSearch = useDocumentSearch(contentEl, resolveLineNumber);
 
   const [diffViewMode, setDiffViewMode] = useDiffViewMode();
@@ -111,6 +135,42 @@ export default function App(): ReactNode {
     dispatch({ type: "OPEN_FILE", data });
     mdview.tabActivated(data.path);
   }, []);
+
+  const followLink = useCallback(
+    async (sourcePath: string, href: string) => {
+      if (href.startsWith("#")) {
+        if (href.length > 1) {
+          setPendingFragment({ path: sourcePath, fragment: href.slice(1) });
+        }
+        return;
+      }
+      const rootPath = getTabGroup(sourcePath, projects, containerFolders)?.rootPath ?? null;
+      const result = await mdview.followLink(sourcePath, href, rootPath);
+      switch (result.kind) {
+        case "markdown":
+          openFile(result.file);
+          if (result.fragment) {
+            setPendingFragment({ path: result.file.path, fragment: result.fragment });
+          }
+          break;
+        case "missing":
+          toast.error("File does not exist", {
+            description: <LinkToastDetail href={href} resolvedPath={result.resolvedPath} />,
+            duration: 10_000,
+          });
+          break;
+        case "open-failed":
+          toast.error("Could not open file", {
+            description: <LinkToastDetail href={href} resolvedPath={result.resolvedPath} error={result.error} />,
+            duration: 10_000,
+          });
+          break;
+        case "opened":
+          break;
+      }
+    },
+    [openFile, projects, containerFolders],
+  );
 
   const openDiff = useCallback((data: DiffData) => {
     dispatch({ type: "OPEN_DIFF", data });
@@ -361,6 +421,21 @@ export default function App(): ReactNode {
       mainRef.current.scrollTop = activeTab.scrollTop;
     }
   }, [activeIndex]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Scroll to a followed link's #fragment once its document is the active tab.
+  // Declared after the scroll restore above so the fragment position wins.
+  useEffect(() => {
+    if (!pendingFragment || !findFragment || !contentEl || activeTab?.path !== pendingFragment.path) {
+      return;
+    }
+    const target = findFragment(contentEl, pendingFragment.fragment);
+    if (target) {
+      target.scrollIntoView({ block: "start", behavior: "smooth" });
+    } else {
+      toast.error(`No heading matches #${pendingFragment.fragment}`);
+    }
+    setPendingFragment(null);
+  }, [pendingFragment, activeTab?.path, contentEl, findFragment]);
 
   // Mark notifications as read when the drawer is open and the active tab has unread notifications
   useEffect(() => {
@@ -748,6 +823,8 @@ export default function App(): ReactNode {
                   contentWidth={contentWidth}
                   contentElRef={setContentEl}
                   findMatchLines={documentSearch.state.matchLineNumbers}
+                  onFollowLink={followLink}
+                  onHoverLink={setHoveredLink}
                 />
               )}
               {activeTab?.kind === "diff" && (
@@ -772,8 +849,9 @@ export default function App(): ReactNode {
         path={activeTab?.path ?? null}
         lastModifiedAt={activeTab?.lastModifiedAt ?? null}
         draggablePath={capabilities.draggablePath}
+        hoveredLink={hoveredLink}
       />
-      <Toaster theme={resolvedMode} position="bottom-center" style={{ bottom: "28px" }} />
+      <Toaster theme={resolvedMode} position="bottom-center" style={{ bottom: "28px" }} closeButton />
       {quickGotoOpen && (
         <QuickGoto
           tabs={tabs}

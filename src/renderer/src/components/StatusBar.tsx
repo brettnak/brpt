@@ -4,6 +4,8 @@ interface StatusBarProps {
   path: string | null;
   lastModifiedAt: Temporal.Instant | null;
   draggablePath?: string;
+  /** Raw href of the link under the cursor; replaces the file path while set. */
+  hoveredLink?: string | null;
 }
 
 const RECENCY_THRESHOLD_MS = 30_000;
@@ -129,6 +131,7 @@ export function StatusBar({
   path,
   lastModifiedAt,
   draggablePath,
+  hoveredLink,
 }: StatusBarProps): ReactNode {
   const handleDragStart = useCallback(
     (e: React.DragEvent) => {
@@ -144,29 +147,37 @@ export function StatusBar({
     <div
       className="h-7 flex items-center px-3 text-xs gap-2 border-t transition-colors duration-300 bg-[var(--status-bg)] border-[var(--status-border)] text-[var(--status-text)]"
     >
-      {draggablePath && (
-        <span
-          draggable="true"
-          onDragStart={handleDragStart}
-          className="shrink-0 cursor-grab opacity-60 hover:opacity-100 transition-opacity"
-          title="Drag to share file"
-        >
-          <FileIcon />
+      {hoveredLink ? (
+        <span className="overflow-hidden text-ellipsis whitespace-nowrap">
+          {hoveredLink}
         </span>
-      )}
-      {path && (
-        <span
-          className="group/copy flex items-center gap-1.5 overflow-hidden cursor-pointer hover:text-[var(--tab-active-text)] transition-colors"
-          onClick={() => navigator.clipboard.writeText(path)}
-          title="Copy path"
-        >
-          <span className="overflow-hidden text-ellipsis whitespace-nowrap">
-            Watching: {path}
-          </span>
-          <span className="shrink-0 opacity-40 group-hover/copy:opacity-100 group-hover/copy:text-[var(--status-glow)] transition-all">
-            <ClipboardIcon />
-          </span>
-        </span>
+      ) : (
+        <>
+          {draggablePath && (
+            <span
+              draggable="true"
+              onDragStart={handleDragStart}
+              className="shrink-0 cursor-grab opacity-60 hover:opacity-100 transition-opacity"
+              title="Drag to share file"
+            >
+              <FileIcon />
+            </span>
+          )}
+          {path && (
+            <span
+              className="group/copy flex items-center gap-1.5 overflow-hidden cursor-pointer hover:text-[var(--tab-active-text)] transition-colors"
+              onClick={() => navigator.clipboard.writeText(path)}
+              title="Copy path"
+            >
+              <span className="overflow-hidden text-ellipsis whitespace-nowrap">
+                Watching: {path}
+              </span>
+              <span className="shrink-0 opacity-40 group-hover/copy:opacity-100 group-hover/copy:text-[var(--status-glow)] transition-all">
+                <ClipboardIcon />
+              </span>
+            </span>
+          )}
+        </>
       )}
       {lastModifiedAt && <ModifiedTime instant={lastModifiedAt} />}
       <span className="shrink-0 opacity-20 ml-1">
