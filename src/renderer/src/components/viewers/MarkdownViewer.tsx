@@ -229,7 +229,7 @@ function measureMarkdownLines(contentEl: HTMLElement, gutterEl: HTMLElement): Gu
   const elements = Array.from(allElements).filter(e =>
     !e.closest(".annotation-block")
   );
-  const byLine = new Map<number, { line: number; top: number; bottom: number; htmlBlock: boolean }>();
+  const byLine = new Map<number, { line: number; top: number; bottom: number; htmlBlock: boolean; lastLine?: number }>();
 
   for (const element of elements) {
     const line = parseInt(element.dataset.sourceLine!, 10);
@@ -244,11 +244,13 @@ function measureMarkdownLines(contentEl: HTMLElement, gutterEl: HTMLElement): Gu
       bottom = firstChild.getBoundingClientRect().top;
     }
 
+    const lastLineAttr = element.dataset.sourceLastLine;
     byLine.set(line, {
       line,
       top: rect.top - gutterRect.top,
       bottom: bottom - gutterRect.top,
       htmlBlock: element.classList.contains("html-block"),
+      lastLine: lastLineAttr != null ? parseInt(lastLineAttr, 10) : undefined,
     });
   }
 

@@ -284,240 +284,242 @@ body[data-palette="mint-sage"] {
   --status-glow: #2f7d68;
 }
 
-/** Per-palette markdown body overrides */
+/** Per-palette markdown body overrides. Scoped to skip raw HTML blocks, matching github-markdown-css in useThemeStyles.ts. */
 
-body[data-palette="solarized-light"] .markdown-body {
-  color: #586e75;
-}
-body[data-palette="solarized-light"] .markdown-body a {
-  color: #268bd2;
-}
-body[data-palette="solarized-light"] .markdown-body code {
-  background-color: #eee8d5;
-  color: #586e75;
-}
-body[data-palette="solarized-light"] .markdown-body pre {
-  background-color: #eee8d5;
-  border: 1px solid #d8d2bf;
-}
-body[data-palette="solarized-light"] .markdown-body table tr {
-  background-color: #fdf6e3;
-  border-top-color: #d8d2bf;
-}
-body[data-palette="solarized-light"] .markdown-body table tr:nth-child(2n) {
-  background-color: #eee8d5;
-}
-body[data-palette="solarized-light"] .markdown-body table th,
-body[data-palette="solarized-light"] .markdown-body table td {
-  border-color: #d8d2bf;
-}
+@scope (html) to (.html-block-content) {
+  body[data-palette="solarized-light"] .markdown-body {
+    color: #586e75;
+  }
+  body[data-palette="solarized-light"] .markdown-body a {
+    color: #268bd2;
+  }
+  body[data-palette="solarized-light"] .markdown-body code {
+    background-color: #eee8d5;
+    color: #586e75;
+  }
+  body[data-palette="solarized-light"] .markdown-body pre {
+    background-color: #eee8d5;
+    border: 1px solid #d8d2bf;
+  }
+  body[data-palette="solarized-light"] .markdown-body table tr {
+    background-color: #fdf6e3;
+    border-top-color: #d8d2bf;
+  }
+  body[data-palette="solarized-light"] .markdown-body table tr:nth-child(2n) {
+    background-color: #eee8d5;
+  }
+  body[data-palette="solarized-light"] .markdown-body table th,
+  body[data-palette="solarized-light"] .markdown-body table td {
+    border-color: #d8d2bf;
+  }
 
-body[data-palette="gruvbox-light"] .markdown-body {
-  color: #3c3836;
-}
-body[data-palette="gruvbox-light"] .markdown-body a {
-  color: #076678;
-}
-body[data-palette="gruvbox-light"] .markdown-body code {
-  background-color: #f2e5bc;
-  color: #3c3836;
-}
-body[data-palette="gruvbox-light"] .markdown-body pre {
-  background-color: #f2e5bc;
-  border: 1px solid #ddd2a8;
-}
-body[data-palette="gruvbox-light"] .markdown-body table tr {
-  background-color: #fbf1c7;
-  border-top-color: #ddd2a8;
-}
-body[data-palette="gruvbox-light"] .markdown-body table tr:nth-child(2n) {
-  background-color: #f2e5bc;
-}
-body[data-palette="gruvbox-light"] .markdown-body table th,
-body[data-palette="gruvbox-light"] .markdown-body table td {
-  border-color: #ddd2a8;
-}
+  body[data-palette="gruvbox-light"] .markdown-body {
+    color: #3c3836;
+  }
+  body[data-palette="gruvbox-light"] .markdown-body a {
+    color: #076678;
+  }
+  body[data-palette="gruvbox-light"] .markdown-body code {
+    background-color: #f2e5bc;
+    color: #3c3836;
+  }
+  body[data-palette="gruvbox-light"] .markdown-body pre {
+    background-color: #f2e5bc;
+    border: 1px solid #ddd2a8;
+  }
+  body[data-palette="gruvbox-light"] .markdown-body table tr {
+    background-color: #fbf1c7;
+    border-top-color: #ddd2a8;
+  }
+  body[data-palette="gruvbox-light"] .markdown-body table tr:nth-child(2n) {
+    background-color: #f2e5bc;
+  }
+  body[data-palette="gruvbox-light"] .markdown-body table th,
+  body[data-palette="gruvbox-light"] .markdown-body table td {
+    border-color: #ddd2a8;
+  }
 
-body[data-palette="rose-pine-dawn"] .markdown-body {
-  color: #575279;
-}
-body[data-palette="rose-pine-dawn"] .markdown-body a {
-  color: #286983;
-}
-body[data-palette="rose-pine-dawn"] .markdown-body code {
-  background-color: #f2e9e1;
-  color: #575279;
-}
-body[data-palette="rose-pine-dawn"] .markdown-body pre {
-  background-color: #f2e9e1;
-  border: 1px solid #dfdad9;
-}
-body[data-palette="rose-pine-dawn"] .markdown-body table tr {
-  background-color: #faf4ed;
-  border-top-color: #dfdad9;
-}
-body[data-palette="rose-pine-dawn"] .markdown-body table tr:nth-child(2n) {
-  background-color: #f2e9e1;
-}
-body[data-palette="rose-pine-dawn"] .markdown-body table th,
-body[data-palette="rose-pine-dawn"] .markdown-body table td {
-  border-color: #dfdad9;
-}
+  body[data-palette="rose-pine-dawn"] .markdown-body {
+    color: #575279;
+  }
+  body[data-palette="rose-pine-dawn"] .markdown-body a {
+    color: #286983;
+  }
+  body[data-palette="rose-pine-dawn"] .markdown-body code {
+    background-color: #f2e9e1;
+    color: #575279;
+  }
+  body[data-palette="rose-pine-dawn"] .markdown-body pre {
+    background-color: #f2e9e1;
+    border: 1px solid #dfdad9;
+  }
+  body[data-palette="rose-pine-dawn"] .markdown-body table tr {
+    background-color: #faf4ed;
+    border-top-color: #dfdad9;
+  }
+  body[data-palette="rose-pine-dawn"] .markdown-body table tr:nth-child(2n) {
+    background-color: #f2e9e1;
+  }
+  body[data-palette="rose-pine-dawn"] .markdown-body table th,
+  body[data-palette="rose-pine-dawn"] .markdown-body table td {
+    border-color: #dfdad9;
+  }
 
-body[data-palette="tokyo-day"] .markdown-body {
-  color: #3760bf;
-}
-body[data-palette="tokyo-day"] .markdown-body a {
-  color: #2e7de9;
-}
-body[data-palette="tokyo-day"] .markdown-body code {
-  background-color: #d0d5e3;
-  color: #3760bf;
-}
-body[data-palette="tokyo-day"] .markdown-body pre {
-  background-color: #d0d5e3;
-  border: 1px solid #b8bcc8;
-}
-body[data-palette="tokyo-day"] .markdown-body table tr {
-  background-color: #e1e2e7;
-  border-top-color: #b8bcc8;
-}
-body[data-palette="tokyo-day"] .markdown-body table tr:nth-child(2n) {
-  background-color: #d0d5e3;
-}
-body[data-palette="tokyo-day"] .markdown-body table th,
-body[data-palette="tokyo-day"] .markdown-body table td {
-  border-color: #b8bcc8;
-}
+  body[data-palette="tokyo-day"] .markdown-body {
+    color: #3760bf;
+  }
+  body[data-palette="tokyo-day"] .markdown-body a {
+    color: #2e7de9;
+  }
+  body[data-palette="tokyo-day"] .markdown-body code {
+    background-color: #d0d5e3;
+    color: #3760bf;
+  }
+  body[data-palette="tokyo-day"] .markdown-body pre {
+    background-color: #d0d5e3;
+    border: 1px solid #b8bcc8;
+  }
+  body[data-palette="tokyo-day"] .markdown-body table tr {
+    background-color: #e1e2e7;
+    border-top-color: #b8bcc8;
+  }
+  body[data-palette="tokyo-day"] .markdown-body table tr:nth-child(2n) {
+    background-color: #d0d5e3;
+  }
+  body[data-palette="tokyo-day"] .markdown-body table th,
+  body[data-palette="tokyo-day"] .markdown-body table td {
+    border-color: #b8bcc8;
+  }
 
-body[data-palette="ayu-light"] .markdown-body {
-  color: #5c6166;
-}
-body[data-palette="ayu-light"] .markdown-body a {
-  color: #3d9ed6;
-}
-body[data-palette="ayu-light"] .markdown-body code {
-  background-color: #f3f4f5;
-  color: #5c6166;
-}
-body[data-palette="ayu-light"] .markdown-body pre {
-  background-color: #f3f4f5;
-  border: 1px solid #e7e8e9;
-}
-body[data-palette="ayu-light"] .markdown-body table tr {
-  background-color: #fafafa;
-  border-top-color: #e7e8e9;
-}
-body[data-palette="ayu-light"] .markdown-body table tr:nth-child(2n) {
-  background-color: #f3f4f5;
-}
-body[data-palette="ayu-light"] .markdown-body table th,
-body[data-palette="ayu-light"] .markdown-body table td {
-  border-color: #e7e8e9;
-}
+  body[data-palette="ayu-light"] .markdown-body {
+    color: #5c6166;
+  }
+  body[data-palette="ayu-light"] .markdown-body a {
+    color: #3d9ed6;
+  }
+  body[data-palette="ayu-light"] .markdown-body code {
+    background-color: #f3f4f5;
+    color: #5c6166;
+  }
+  body[data-palette="ayu-light"] .markdown-body pre {
+    background-color: #f3f4f5;
+    border: 1px solid #e7e8e9;
+  }
+  body[data-palette="ayu-light"] .markdown-body table tr {
+    background-color: #fafafa;
+    border-top-color: #e7e8e9;
+  }
+  body[data-palette="ayu-light"] .markdown-body table tr:nth-child(2n) {
+    background-color: #f3f4f5;
+  }
+  body[data-palette="ayu-light"] .markdown-body table th,
+  body[data-palette="ayu-light"] .markdown-body table td {
+    border-color: #e7e8e9;
+  }
 
-body[data-palette="quiet-light"] .markdown-body {
-  color: #333333;
-}
-body[data-palette="quiet-light"] .markdown-body a {
-  color: #4b69c6;
-}
-body[data-palette="quiet-light"] .markdown-body code {
-  background-color: #ececec;
-  color: #333333;
-}
-body[data-palette="quiet-light"] .markdown-body pre {
-  background-color: #ececec;
-  border: 1px solid #d4d4d4;
-}
-body[data-palette="quiet-light"] .markdown-body table tr {
-  background-color: #f5f5f5;
-  border-top-color: #d4d4d4;
-}
-body[data-palette="quiet-light"] .markdown-body table tr:nth-child(2n) {
-  background-color: #ececec;
-}
-body[data-palette="quiet-light"] .markdown-body table th,
-body[data-palette="quiet-light"] .markdown-body table td {
-  border-color: #d4d4d4;
-}
+  body[data-palette="quiet-light"] .markdown-body {
+    color: #333333;
+  }
+  body[data-palette="quiet-light"] .markdown-body a {
+    color: #4b69c6;
+  }
+  body[data-palette="quiet-light"] .markdown-body code {
+    background-color: #ececec;
+    color: #333333;
+  }
+  body[data-palette="quiet-light"] .markdown-body pre {
+    background-color: #ececec;
+    border: 1px solid #d4d4d4;
+  }
+  body[data-palette="quiet-light"] .markdown-body table tr {
+    background-color: #f5f5f5;
+    border-top-color: #d4d4d4;
+  }
+  body[data-palette="quiet-light"] .markdown-body table tr:nth-child(2n) {
+    background-color: #ececec;
+  }
+  body[data-palette="quiet-light"] .markdown-body table th,
+  body[data-palette="quiet-light"] .markdown-body table td {
+    border-color: #d4d4d4;
+  }
 
-body[data-palette="paper"] .markdown-body {
-  color: #222222;
-}
-body[data-palette="paper"] .markdown-body a {
-  color: #1a73a8;
-}
-body[data-palette="paper"] .markdown-body code {
-  background-color: #e8e2cf;
-  color: #222222;
-}
-body[data-palette="paper"] .markdown-body pre {
-  background-color: #e8e2cf;
-  border: 1px solid #d4ccb0;
-}
-body[data-palette="paper"] .markdown-body table tr {
-  background-color: #f2eede;
-  border-top-color: #d4ccb0;
-}
-body[data-palette="paper"] .markdown-body table tr:nth-child(2n) {
-  background-color: #e8e2cf;
-}
-body[data-palette="paper"] .markdown-body table th,
-body[data-palette="paper"] .markdown-body table td {
-  border-color: #d4ccb0;
-}
+  body[data-palette="paper"] .markdown-body {
+    color: #222222;
+  }
+  body[data-palette="paper"] .markdown-body a {
+    color: #1a73a8;
+  }
+  body[data-palette="paper"] .markdown-body code {
+    background-color: #e8e2cf;
+    color: #222222;
+  }
+  body[data-palette="paper"] .markdown-body pre {
+    background-color: #e8e2cf;
+    border: 1px solid #d4ccb0;
+  }
+  body[data-palette="paper"] .markdown-body table tr {
+    background-color: #f2eede;
+    border-top-color: #d4ccb0;
+  }
+  body[data-palette="paper"] .markdown-body table tr:nth-child(2n) {
+    background-color: #e8e2cf;
+  }
+  body[data-palette="paper"] .markdown-body table th,
+  body[data-palette="paper"] .markdown-body table td {
+    border-color: #d4ccb0;
+  }
 
-body[data-palette="noctis-lux"] .markdown-body {
-  color: #005661;
-}
-body[data-palette="noctis-lux"] .markdown-body a {
-  color: #0099a8;
-}
-body[data-palette="noctis-lux"] .markdown-body code {
-  background-color: #f6efde;
-  color: #005661;
-}
-body[data-palette="noctis-lux"] .markdown-body pre {
-  background-color: #f6efde;
-  border: 1px solid #e4dbc4;
-}
-body[data-palette="noctis-lux"] .markdown-body table tr {
-  background-color: #fef8ec;
-  border-top-color: #e4dbc4;
-}
-body[data-palette="noctis-lux"] .markdown-body table tr:nth-child(2n) {
-  background-color: #f6efde;
-}
-body[data-palette="noctis-lux"] .markdown-body table th,
-body[data-palette="noctis-lux"] .markdown-body table td {
-  border-color: #e4dbc4;
-}
+  body[data-palette="noctis-lux"] .markdown-body {
+    color: #005661;
+  }
+  body[data-palette="noctis-lux"] .markdown-body a {
+    color: #0099a8;
+  }
+  body[data-palette="noctis-lux"] .markdown-body code {
+    background-color: #f6efde;
+    color: #005661;
+  }
+  body[data-palette="noctis-lux"] .markdown-body pre {
+    background-color: #f6efde;
+    border: 1px solid #e4dbc4;
+  }
+  body[data-palette="noctis-lux"] .markdown-body table tr {
+    background-color: #fef8ec;
+    border-top-color: #e4dbc4;
+  }
+  body[data-palette="noctis-lux"] .markdown-body table tr:nth-child(2n) {
+    background-color: #f6efde;
+  }
+  body[data-palette="noctis-lux"] .markdown-body table th,
+  body[data-palette="noctis-lux"] .markdown-body table td {
+    border-color: #e4dbc4;
+  }
 
-body[data-palette="mint-sage"] .markdown-body {
-  color: #2c3a2e;
-}
-body[data-palette="mint-sage"] .markdown-body a {
-  color: #2f7d68;
-}
-body[data-palette="mint-sage"] .markdown-body code {
-  background-color: #e4ebde;
-  color: #2c3a2e;
-}
-body[data-palette="mint-sage"] .markdown-body pre {
-  background-color: #e4ebde;
-  border: 1px solid #c8d4bf;
-}
-body[data-palette="mint-sage"] .markdown-body table tr {
-  background-color: #f1f5ef;
-  border-top-color: #c8d4bf;
-}
-body[data-palette="mint-sage"] .markdown-body table tr:nth-child(2n) {
-  background-color: #e4ebde;
-}
-body[data-palette="mint-sage"] .markdown-body table th,
-body[data-palette="mint-sage"] .markdown-body table td {
-  border-color: #c8d4bf;
+  body[data-palette="mint-sage"] .markdown-body {
+    color: #2c3a2e;
+  }
+  body[data-palette="mint-sage"] .markdown-body a {
+    color: #2f7d68;
+  }
+  body[data-palette="mint-sage"] .markdown-body code {
+    background-color: #e4ebde;
+    color: #2c3a2e;
+  }
+  body[data-palette="mint-sage"] .markdown-body pre {
+    background-color: #e4ebde;
+    border: 1px solid #c8d4bf;
+  }
+  body[data-palette="mint-sage"] .markdown-body table tr {
+    background-color: #f1f5ef;
+    border-top-color: #c8d4bf;
+  }
+  body[data-palette="mint-sage"] .markdown-body table tr:nth-child(2n) {
+    background-color: #e4ebde;
+  }
+  body[data-palette="mint-sage"] .markdown-body table th,
+  body[data-palette="mint-sage"] .markdown-body table td {
+    border-color: #c8d4bf;
+  }
 }
 
 .markdown-body ul {
@@ -646,12 +648,25 @@ body[data-theme="dark"] ::highlight(search-active) {
 }
 
 .markdown-body .html-block-content {
-  background: #ffffff;
+  background: var(--bg);
   overflow: hidden;
 }
 
-body[data-theme="dark"] .markdown-body .html-block-content {
-  background: #0d1117;
+/** Base styles for raw HTML, which github-markdown-css is scoped out of. */
+
+.html-block-content th,
+.html-block-content td {
+  border: 1px solid var(--sidebar-border);
+  padding: 6px 13px;
+}
+
+.html-block-content th {
+  font-weight: 600;
+  text-align: left;
+}
+
+.html-block-content p:not(:last-child) {
+  margin-bottom: 1em;
 }
 
 .notification-content .markdown-body pre {
@@ -805,6 +820,13 @@ body[data-theme="dark"] .mermaid-error {
   display: flex;
   align-items: flex-end;
   padding-bottom: 2px;
+}
+
+.gutter-line-content--top {
+  margin-bottom: auto;
+  align-items: flex-start;
+  padding-top: 2px;
+  padding-bottom: 0;
 }
 
 .gutter-indicators {

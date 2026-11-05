@@ -17,6 +17,8 @@ export interface GutterLine {
   top: number;
   bottom: number;
   htmlBlock?: boolean;
+  /** Last source line of a multi-line block. When it differs from `line`, `line` is labeled at the top of the entry and `lastLine` at the bottom. */
+  lastLine?: number;
 }
 
 export type MeasureGutterLines = (contentEl: HTMLElement, gutterEl: HTMLElement) => GutterLine[];
@@ -160,7 +162,7 @@ export function AnnotationGutter({
     if (lines.length === 0) {
       return 1;
     }
-    return String(Math.max(...lines.map((l) => l.line))).length;
+    return String(Math.max(...lines.map((l) => l.lastLine ?? l.line))).length;
   }, [lines]);
 
   const indicatorWidth = hasAnnotations ? DOT_SIZE + DOT_LEFT : 0;
@@ -176,6 +178,7 @@ export function AnnotationGutter({
           insertionLines.every((il) => collapsedInsertionLines.has(il));
 
         const hasFindMatch = findMatchLines != null && findMatchLines.has(l.line);
+        const hasTopLabel = l.lastLine != null && l.lastLine !== l.line;
 
         return (
           <div
@@ -191,6 +194,11 @@ export function AnnotationGutter({
               ? () => onDotClick(insertionLines)
               : undefined}
           >
+            {hasTopLabel && (
+              <div className="gutter-line-content gutter-line-content--top">
+                <span className="gutter-line-number">{l.line}</span>
+              </div>
+            )}
             <div className="gutter-line-content">
               <div className="gutter-indicators">
                 {hasDot && (
@@ -206,7 +214,7 @@ export function AnnotationGutter({
                   />
                 )}
               </div>
-              <span className="gutter-line-number">{l.line}</span>
+              <span className="gutter-line-number">{l.lastLine ?? l.line}</span>
             </div>
             <div className="gutter-line-divider" />
           </div>

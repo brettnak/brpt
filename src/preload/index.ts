@@ -195,7 +195,8 @@ const lineRenderer = {
   html(token: (Tokens.HTML | Tokens.Tag) & { _line?: number }) {
     const isClosingTag = /^\s*<\/[a-zA-Z]/.test(token.text);
     if (token._line != null && !isClosingTag) {
-      return `<div class="html-block" data-source-line="${token._line}"><div class="html-block-label">&lt;html&gt;</div><div class="html-block-content">${token.text}</div><div class="html-block-label">&lt;/html&gt;</div></div>`;
+      const lastLine = token._line + token.raw.trimEnd().split("\n").length - 1;
+      return `<div class="html-block" data-source-line="${token._line}" data-source-last-line="${lastLine}"><div class="html-block-label">&lt;html&gt;</div><div class="html-block-content">${token.text}</div><div class="html-block-label">&lt;/html&gt;</div></div>`;
     }
     if (token._line != null) {
       return `<div data-source-line="${token._line}">${token.text}</div>`;
