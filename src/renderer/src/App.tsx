@@ -526,6 +526,9 @@ export default function App(): ReactNode {
       mdview.onNotificationReceived(({ targetPath, notification }) => {
         dispatch({ type: "ADD_NOTIFICATION", path: targetPath, notification });
       }),
+      mdview.onCommunityBlockReply(({ path }) => {
+        dispatch({ type: "MARK_UNSEEN", path });
+      }),
       mdview.onConfigLoaded(applyConfig),
       mdview.onActivateFile((path: string) => {
         dispatch({ type: "ACTIVATE_FILE_BY_PATH", path });

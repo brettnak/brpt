@@ -1,9 +1,11 @@
 import mermaid from "mermaid";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
+import { createPortal } from "react-dom";
 import { annotationInsertionLine } from "../../../../shared/annotations";
 import { classNames } from "../../classNames";
 import type { Annotation, ContentWidthConfig, ContentWidthMode, MarkdownTab, ViewerCapabilities } from "../../types";
 import { AnnotationGutter, type GutterLine } from "../AnnotationGutter";
+import { CommunityBlock, findCommunityBlockHosts, loadCommunityBlocks, type CommunityBlockHost } from "../CommunityBlock";
 import { useCurrentHeading } from "../../useCurrentHeading";
 import { SegmentedControl } from "../ui-elements/SegmentedControl";
 import { defaultPaletteForMode, paletteById, paletteMermaidVars, type Palette } from "../../themes";
@@ -320,6 +322,24 @@ export function MarkdownContent({
     }
   }, [renderedHtml]);
 
+  // `claude-community` blocks render as empty placeholders; each gets a React portal.
+  const [communityHosts, setCommunityHosts] = useState<CommunityBlockHost[]>([]);
+
+  useLayoutEffect(() => {
+    const markdownBody = markdownBodyRef.current;
+    if (!markdownBody) {
+      return;
+    }
+    const hosts = findCommunityBlockHosts(markdownBody);
+    setCommunityHosts((prev) => (prev.length === 0 && hosts.length === 0 ? prev : hosts));
+  }, [renderedHtml]);
+
+  useEffect(() => {
+    if (communityHosts.some((host) => host.spec)) {
+      loadCommunityBlocks(tab.path);
+    }
+  }, [tab.path, communityHosts]);
+
   // Render mermaid diagrams in placeholder blocks (re-runs on theme change)
   useEffect(() => {
     const markdownBody = markdownBodyRef.current;
@@ -603,6 +623,13 @@ export function MarkdownContent({
           </div>
         </div>
       </div>
+      {communityHosts.map((host) =>
+        createPortal(
+          <CommunityBlock path={tab.path} line={host.line} spec={host.spec} error={host.error} />,
+          host.element,
+          host.key,
+        ),
+      )}
     </>
   );
 }

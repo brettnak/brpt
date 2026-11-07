@@ -3,6 +3,7 @@ import hljs from "highlight.js";
 import { Marked, type Token, type Tokens } from "marked";
 import { markedHighlight } from "marked-highlight";
 import os from "os";
+import { isCommunityBlockLang, parseCommunityBlock, type CommunityBlockSnapshot } from "../shared/communityBlock";
 import type { Annotation, AppConfig, BrptNotification, DiffData, FileData, LinkResult, OpenEntry, SidecarExtras, Store } from "../shared/types";
 export type { AppConfig, BrptNotification, DiffData, FileData, LinkResult, OpenEntry, SidecarExtras, Store };
 
@@ -33,6 +34,11 @@ export interface MdviewApi {
   startFileDrag(filePath: string): void;
   getStore(): Promise<Store>;
   tabActivated(path: string): void;
+  getCommunityBlocks(path: string): Promise<CommunityBlockSnapshot[]>;
+  /** Resolves to an error message, or null when the message was sent. */
+  sendCommunityMessage(path: string, name: string, line: number, text: string): Promise<string | null>;
+  onCommunityBlockUpdated(callback: (snapshot: CommunityBlockSnapshot) => void): () => void;
+  onCommunityBlockReply(callback: (data: { path: string }) => void): () => void;
   homedir: string;
 }
 
@@ -108,10 +114,41 @@ function injectLineAttr(tag: string, line: number | undefined): string {
   return tag.replace(/>/, ` data-source-line="${line}">`);
 }
 
+function escapeAttr(value: string): string {
+  return value.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+/**
+ * A `claude-community` block becomes an empty placeholder that the renderer fills with the
+ * conversation. It spans the block's source lines, from the opening fence to the closing one.
+ */
+function communityBlockPlaceholder(token: Tokens.Code & { _line?: number }): string {
+  const attrs = ['class="community-block"'];
+  if (token._line != null) {
+    const lastLine = token._line + token.raw.trimEnd().split("\n").length - 1;
+    attrs.push(`data-source-line="${token._line}"`, `data-source-last-line="${lastLine}"`);
+  }
+  const parsed = parseCommunityBlock(token.text);
+  if (parsed.ok) {
+    attrs.push(
+      `data-name="${escapeAttr(parsed.spec.name)}"`,
+      `data-community="${escapeAttr(parsed.spec.community)}"`,
+      `data-handle="${escapeAttr(parsed.spec.handle)}"`,
+    );
+  } else {
+    attrs.push(`data-error="${escapeAttr(parsed.error)}"`);
+  }
+  return `<div ${attrs.join(" ")}></div>\n`;
+}
+
 const lineRenderer = {
   code(this: { parser: { parseInline(tokens: Token[]): string } }, token: Tokens.Code & { _line?: number }) {
     const langString = (token.lang || "").match(/\S+/)?.[0] ? token.lang : "";
     const raw = token.text.replace(/\n$/, "") + "\n";
+
+    if (isCommunityBlockLang(langString)) {
+      return communityBlockPlaceholder(token);
+    }
 
     // Mermaid blocks get a placeholder div — rendering happens in the browser.
     // Use the closing fence line as the source line so the gutter label appears
@@ -228,7 +265,7 @@ const lineRenderer = {
 };
 
 function highlightCode(code: string, lang: string): string {
-  if (lang === "mermaid") {
+  if (lang === "mermaid" || isCommunityBlockLang(lang)) {
     return code;
   }
   if (lang && hljs.getLanguage(lang)) {
@@ -368,6 +405,26 @@ const api: MdviewApi = {
   getStore: () => ipcRenderer.invoke("get-store"),
   tabActivated: (path: string) =>
     ipcRenderer.send("tab-activated", path),
+  getCommunityBlocks: (path: string) =>
+    ipcRenderer.invoke("get-community-blocks", path),
+  sendCommunityMessage: (path: string, name: string, line: number, text: string) =>
+    ipcRenderer.invoke("send-community-message", path, name, line, text),
+  onCommunityBlockUpdated: (callback: (snapshot: CommunityBlockSnapshot) => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, snapshot: CommunityBlockSnapshot): void =>
+      callback(snapshot);
+    ipcRenderer.on("community-block-updated", listener);
+    return () => {
+      ipcRenderer.removeListener("community-block-updated", listener);
+    };
+  },
+  onCommunityBlockReply: (callback: (data: { path: string }) => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, data: { path: string }): void =>
+      callback(data);
+    ipcRenderer.on("community-block-reply", listener);
+    return () => {
+      ipcRenderer.removeListener("community-block-reply", listener);
+    };
+  },
   homedir: os.homedir(),
 };
 

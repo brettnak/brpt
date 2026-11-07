@@ -669,6 +669,136 @@ body[data-theme="dark"] ::highlight(search-active) {
   margin-bottom: 1em;
 }
 
+/** claude-community blocks. The placeholder has a fixed height so the gutter, measured before the block mounts, stays aligned. */
+
+.markdown-body .community-block {
+  height: 360px;
+  margin: 16px 0;
+}
+
+.community-block-card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  border: 1px solid var(--sidebar-border);
+  border-radius: 6px;
+  background: var(--sidebar-bg);
+  overflow: hidden;
+}
+
+.community-block-header {
+  display: flex;
+  gap: 6px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--sidebar-border);
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 11px;
+  color: var(--status-text);
+}
+
+.community-block-header-name {
+  color: var(--tab-active-text);
+}
+
+.community-block-header-sep {
+  opacity: 0.6;
+}
+
+.community-block-log {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 10px 12px;
+  background: var(--bg);
+}
+
+.community-message + .community-message {
+  margin-top: 12px;
+}
+
+.community-message-meta {
+  display: flex;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--status-text);
+}
+
+.community-message-from {
+  font-weight: 600;
+  color: var(--tab-active-text);
+}
+
+.community-message--own .community-message-from {
+  color: var(--tab-changed-dot);
+}
+
+.markdown-body .community-message-body,
+.markdown-body .community-block-status,
+.markdown-body .community-block-error {
+  font-size: 14px;
+}
+
+.markdown-body .community-block-status,
+.community-block-empty {
+  margin-top: 8px;
+  color: var(--status-text);
+}
+
+.community-block-empty {
+  font-size: 13px;
+}
+
+.community-block-send-error,
+.markdown-body .community-block-error {
+  margin-top: 8px;
+  color: #cf222e;
+  font-size: 13px;
+}
+
+body[data-theme="dark"] .community-block-send-error,
+body[data-theme="dark"] .markdown-body .community-block-error {
+  color: #f85149;
+}
+
+.community-block-input {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  padding: 8px 12px;
+  border-top: 1px solid var(--sidebar-border);
+}
+
+.community-block-input textarea {
+  flex: 1;
+  resize: none;
+  padding: 6px 8px;
+  border: 1px solid var(--sidebar-border);
+  border-radius: 4px;
+  background: var(--bg);
+  color: inherit;
+  font: inherit;
+  font-size: 14px;
+}
+
+.community-block-input textarea:disabled {
+  opacity: 0.5;
+}
+
+.community-block-input button {
+  padding: 0 14px;
+  border: 1px solid var(--sidebar-border);
+  border-radius: 4px;
+  background: var(--btn-hover-bg);
+  color: var(--tab-active-text);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.community-block-input button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 .notification-content .markdown-body pre {
   background-color: var(--sidebar-bg) !important;
 }

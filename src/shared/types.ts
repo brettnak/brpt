@@ -69,6 +69,8 @@ export interface AppConfig {
   drawerWidth?: number;
   pruneKeepCount?: number;
   animations?: "normal" | "jack";
+  /** Path of the claude-community CLI. A brpt launched from Finder doesn't get the shell's PATH, so it's stored here. */
+  claudeCommunityPath?: string;
 }
 
 export interface FileData {

@@ -11,6 +11,7 @@ export type TabsAction =
   | { type: "ACTIVATE_TAB"; index: number; currentScrollTop: number }
   | { type: "FILE_UPDATED"; data: FileData }
   | { type: "FILE_REMOVED"; path: string }
+  | { type: "MARK_UNSEEN"; path: string }
   | { type: "REORDER_TAB"; fromIndex: number; toIndex: number }
   | { type: "OPEN_DIFF"; data: DiffData }
   | { type: "DIFF_UPDATED"; data: DiffData }
@@ -168,6 +169,16 @@ export function tabsReducer(state: TabsState, action: TabsAction): TabsState {
         ),
         hasUnseenChanges: index !== state.activeIndex,
       };
+      return { tabs, activeIndex: state.activeIndex };
+    }
+
+    case "MARK_UNSEEN": {
+      const index = state.tabs.findIndex((t) => t.path === action.path);
+      if (index === -1 || index === state.activeIndex || state.tabs[index].hasUnseenChanges) {
+        return state;
+      }
+      const tabs = [...state.tabs];
+      tabs[index] = { ...tabs[index], hasUnseenChanges: true };
       return { tabs, activeIndex: state.activeIndex };
     }
 

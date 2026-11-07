@@ -19,6 +19,7 @@ import type {
   SidecarExtras,
   Store,
 } from "../shared/types";
+import { createCommunityBlocks, DEFAULT_CLAUDE_COMMUNITY_PATH } from "./communityBlocks";
 
 const DEFAULT_CONFIG: AppConfig = {
   theme: "light",
@@ -67,6 +68,27 @@ function saveConfig(config: AppConfig): void {
     fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2));
   } catch (err) {
     console.error(`Failed to save config to ${CONFIG_PATH}:`, err);
+  }
+}
+
+const communityBlocks = createCommunityBlocks({
+  cliPath: () => loadConfig().claudeCommunityPath ?? DEFAULT_CLAUDE_COMMUNITY_PATH,
+  onSnapshot: (snapshot) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send("community-block-updated", snapshot);
+    }
+  },
+  onReply: (path) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send("community-block-reply", { path });
+    }
+  },
+});
+
+/** Starts, updates or stops the `claude-community` blocks of a file opened as a markdown tab. */
+function syncCommunityBlocks(path: string, content: string): void {
+  if (MARKDOWN_EXTENSION.test(path)) {
+    communityBlocks.syncFile(path, content);
   }
 }
 
@@ -204,6 +226,7 @@ async function followLink(sourcePath: string, href: string, rootPath: string | n
       return { kind: "open-failed", resolvedPath, error: "The file could not be read." };
     }
     watchFile(resolvedPath);
+    syncCommunityBlocks(resolvedPath, file.content);
     return { kind: "markdown", file: { path: resolvedPath, ...file }, fragment };
   }
 
@@ -356,12 +379,16 @@ function watchFile(filePath: string): void {
     }
 
     const file = readFile(abs);
+    if (file) {
+      syncCommunityBlocks(abs, file.content);
+    }
     if (file && mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send("file-updated", { path: abs, ...file });
     }
   });
   watcher.on("unlink", () => {
     unwatchFile(abs);
+    communityBlocks.closeFile(abs);
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send("file-removed", { path: abs });
     }
@@ -440,6 +467,7 @@ type CliResult =
   | { kind: "annotate-remove"; target: string; annotationId: string; foreground: boolean }
   | { kind: "annotate-clear"; target: string; foreground: boolean }
   | { kind: "annotate-list"; target: string; foreground: boolean }
+  | { kind: "set-ccc-path"; path: string; foreground: boolean }
   | { kind: "help"; text: string }
   | { kind: "none" };
 
@@ -591,6 +619,34 @@ STDIN
     --message-file to the Electron app. This is the recommended way to
     send multi-line or markdown-rich content.
 
+CLAUDE-COMMUNITY BLOCKS
+
+    A fenced block with the info string claude-community shows a
+    conversation with one member of a claude-community channel:
+
+        \`\`\`claude-community
+        name: finding-3
+        community: pr-1719
+        handle: reviewer-03
+        \`\`\`
+
+    name        the block's handle in the community (lowercase letters,
+                digits and -, at most 32 characters; unique in the
+                document)
+    community   the community to join, or the path of its socket
+    handle      the member the block messages
+
+    While the document is open, brpt joins the community as an app
+    member named <name> and shows the messages between <name> and
+    <handle>. Each message typed into the block starts with a line
+    naming the block, the document and the block's line, so the agent
+    knows what it refers to. If the community doesn't exist, brpt
+    hosts it until brpt quits.
+
+    The blocks run the claude-community CLI. Set its path with:
+
+        brpt set-ccc-path ~/.claude/skills/community/bin/claude-community
+
 CONFIGURATION
 
     Config is stored at ~/.brpt/brpt-config.json (override with the
@@ -606,6 +662,8 @@ CONFIGURATION
     containerFolders         Project roots for grouping tabs in sidebar
     brpt_development_roots   Paths to brpt source checkouts (for dev
                              mode forwarding — see below)
+    claudeCommunityPath      Path of the claude-community CLI (default
+                             ~/.claude/skills/community/bin/claude-community)
 
 DEV MODE
 
@@ -780,6 +838,19 @@ function buildCliProgram(): { program: Command; getResult: () => CliResult } {
       result = {
         kind: "annotate-list",
         target: resolve(cwd, target),
+        foreground: !!globals.foreground,
+      };
+    });
+
+  program
+    .command("set-ccc-path <path>")
+    .description("set the path of the claude-community CLI used by claude-community blocks")
+    .action((path: string, _opts: unknown, cmd: Command) => {
+      const globals = cmd.optsWithGlobals();
+      const cwd = globals.cwd || process.cwd();
+      result = {
+        kind: "set-ccc-path",
+        path: resolve(cwd, path),
         foreground: !!globals.foreground,
       };
     });
@@ -982,6 +1053,13 @@ function handleCliResult(parsed: CliResult): void {
       console.error("brpt annotate list: internal error (should have exited before single-instance lock)");
       break;
     }
+    case "set-ccc-path": {
+      const config = loadConfig();
+      config.claudeCommunityPath = parsed.path;
+      saveConfig(config);
+      communityBlocks.retryNotInstalled();
+      break;
+    }
     case "none":
       break;
   }
@@ -999,6 +1077,7 @@ function openFilesAndSend(filePaths: string[]): void {
       const file = readFile(abs);
       if (file) {
         watchFile(abs);
+        syncCommunityBlocks(abs, file.content);
         return { path: abs, ...file };
       }
       return null;
@@ -1262,7 +1341,7 @@ if (!gotTheLock) {
     const parsed = parseCliArgs(argv);
     handleCliResult(parsed);
 
-    const backgroundByDefault = parsed.kind === "notify" || parsed.kind.startsWith("annotate");
+    const backgroundByDefault = parsed.kind === "notify" || parsed.kind.startsWith("annotate") || parsed.kind === "set-ccc-path";
     const shouldFocus = ("foreground" in parsed && parsed.foreground) || !backgroundByDefault;
     if (shouldFocus && mainWindow && !mainWindow.isDestroyed()) {
       if (mainWindow.isMinimized()) {
@@ -1292,6 +1371,10 @@ if (!gotTheLock) {
     watchers.clear();
     app.quit();
   });
+
+  app.on("will-quit", () => {
+    communityBlocks.stopAll();
+  });
 }
 
 /** IPC handlers */
@@ -1313,6 +1396,7 @@ ipcMain.handle("open-file-dialog", async () => {
       const file = readFile(abs);
       if (file) {
         watchFile(abs);
+        syncCommunityBlocks(abs, file.content);
         return { path: abs, ...file };
       }
       return null;
@@ -1325,6 +1409,7 @@ ipcMain.handle("request-file", (_event, filePath: string) => {
   const file = readFile(abs);
   if (file) {
     watchFile(abs);
+    syncCommunityBlocks(abs, file.content);
     return { path: abs, ...file };
   }
   return null;
@@ -1395,6 +1480,15 @@ ipcMain.handle("request-diff-by-files", (_event, newPath: string, oldPath: strin
 
 ipcMain.on("close-file", (_event, filePath: string) => {
   unwatchFile(filePath);
+  communityBlocks.closeFile(resolve(filePath));
+});
+
+ipcMain.handle("get-community-blocks", (_event, path: string) => {
+  return communityBlocks.snapshots(path);
+});
+
+ipcMain.handle("send-community-message", (_event, path: string, name: string, line: number, text: string) => {
+  return communityBlocks.send(path, name, line, text);
 });
 
 ipcMain.handle("get-config", () => {
