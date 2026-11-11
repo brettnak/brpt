@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type KeyboardEvent, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type KeyboardEvent, type ReactNode } from "react";
 import {
   stripBlockPreamble,
   type CommunityBlockSnapshot,
@@ -6,6 +6,8 @@ import {
   type CommunityMessage,
 } from "../../../shared/communityBlock";
 import { classNames } from "../classNames";
+import { renderMermaidBlocks, useActivePalette } from "../mermaidBlocks";
+import type { Palette } from "../themes";
 
 const { mdview } = window;
 
@@ -67,6 +69,8 @@ export function findCommunityBlockHosts(root: HTMLElement): CommunityBlockHost[]
       return { key: `invalid-${index}`, element, line, spec: null, error: error ?? "This block couldn't be read." };
     }
     if (names.has(name)) {
+      // Sized like an invalid block before it mounts, so the gutter measures the right height.
+      element.classList.add("community-block--invalid");
       return { key: `duplicate-${index}`, element, line, spec: null, error: `An earlier block in this document is named \`${name}\`.` };
     }
     names.add(name);
@@ -106,12 +110,41 @@ function formatTime(ts: string): string {
   }
 }
 
-function Markdown({ text, className }: { text: string; className?: string }): ReactNode {
-  const html = useMemo(() => mdview.renderMarkdown(text), [text]);
-  return <div className={classNames("markdown-body", className)} dangerouslySetInnerHTML={{ __html: html }} />;
+interface MarkdownProps {
+  text: string;
+  palette: Palette;
+  className?: string;
 }
 
-function MessageItem({ message, name }: { message: CommunityMessage; name: string }): ReactNode {
+/** Message markdown, with HTML cards and mermaid diagrams as in documents. */
+function Markdown({ text, palette, className }: MarkdownProps): ReactNode {
+  const html = useMemo(() => mdview.renderMessageMarkdown(text), [text]);
+  const ref = useRef<HTMLDivElement>(null);
+
+  // Set innerHTML through the ref so React never resets it and removes the drawn diagrams.
+  useLayoutEffect(() => {
+    if (ref.current) {
+      ref.current.innerHTML = html;
+    }
+  }, [html]);
+
+  useEffect(() => {
+    if (!ref.current) {
+      return;
+    }
+    return renderMermaidBlocks(Array.from(ref.current.querySelectorAll<HTMLElement>(".mermaid-block")), palette);
+  }, [html, palette]);
+
+  return <div ref={ref} className={classNames("markdown-body", className)} />;
+}
+
+interface MessageItemProps {
+  message: CommunityMessage;
+  name: string;
+  palette: Palette;
+}
+
+function MessageItem({ message, name, palette }: MessageItemProps): ReactNode {
   const own = message.from === name;
   return (
     <div className={classNames("community-message", own && "community-message--own")}>
@@ -119,7 +152,11 @@ function MessageItem({ message, name }: { message: CommunityMessage; name: strin
         <span className="community-message-from">{message.from}</span>
         <span className="community-message-time">{formatTime(message.ts)}</span>
       </div>
-      <Markdown className="community-message-body" text={own ? stripBlockPreamble(message.body) : message.body} />
+      <Markdown
+        className="community-message-body"
+        text={own ? stripBlockPreamble(message.body) : message.body}
+        palette={palette}
+      />
     </div>
   );
 }
@@ -135,15 +172,23 @@ interface CommunityBlockProps {
 export function CommunityBlock({ path, line, spec, error }: CommunityBlockProps): ReactNode {
   if (!spec) {
     return (
-      <div className="community-block-card">
-        <div className="community-block-header">claude-community</div>
-        <div className="community-block-log">
-          <Markdown className="community-block-error" text={error ?? "This block couldn't be read."} />
+      <div className="community-block-card community-block-card--invalid">
+        <div className="community-block-header">
+          <span>claude-community</span>
+          <span className="community-block-header-sep">·</span>
+          <span className="community-block-invalid">invalid</span>
+          <span className="community-block-header-sep">·</span>
+          <span>{withInlineCode(error ?? "This block couldn't be read.")}</span>
         </div>
       </div>
     );
   }
   return <Conversation path={path} line={line} spec={spec} />;
+}
+
+/** Renders `text` with its backtick spans as `<code>`. */
+function withInlineCode(text: string): ReactNode[] {
+  return text.split("`").map((part, index) => (index % 2 === 1 ? <code key={index}>{part}</code> : part));
 }
 
 function Conversation({ path, line, spec }: { path: string; line: number; spec: CommunityBlockSpec }): ReactNode {
@@ -152,6 +197,7 @@ function Conversation({ path, line, spec }: { path: string; line: number; spec: 
   const messages = snapshot?.messages ?? [];
   const status = statusMarkdown(snapshot, spec.community);
   const joined = snapshot?.status === "joined";
+  const palette = useActivePalette();
 
   const [draft, setDraftState] = useState(() => drafts.get(key) ?? "");
   const [sendError, setSendError] = useState<string | null>(null);
@@ -207,9 +253,9 @@ function Conversation({ path, line, spec }: { path: string; line: number; spec: 
           <div className="community-block-empty">No messages with {spec.handle} yet.</div>
         )}
         {messages.map((message, index) => (
-          <MessageItem key={`${message.ts}-${index}`} message={message} name={spec.name} />
+          <MessageItem key={`${message.ts}-${index}`} message={message} name={spec.name} palette={palette} />
         ))}
-        {status && <Markdown className="community-block-status" text={status} />}
+        {status && <Markdown className="community-block-status" text={status} palette={palette} />}
         {sendError && <div className="community-block-send-error">{sendError}</div>}
       </div>
       <div className="community-block-input">

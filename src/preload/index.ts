@@ -9,6 +9,8 @@ export type { AppConfig, BrptNotification, DiffData, FileData, LinkResult, OpenE
 
 export interface MdviewApi {
   renderMarkdown(text: string, startLine?: number): string;
+  /** Renders a claude-community message, with HTML cards and mermaid placeholders like a document but no source lines. */
+  renderMessageMarkdown(text: string): string;
   onFileUpdated(callback: (data: FileData) => void): () => void;
   onFileRemoved(callback: (data: { path: string }) => void): () => void;
   onFilesFromArgs(callback: (files: FileData[]) => void): () => void;
@@ -114,6 +116,17 @@ function injectLineAttr(tag: string, line: number | undefined): string {
   return tag.replace(/>/, ` data-source-line="${line}">`);
 }
 
+/** The card that sets raw HTML apart from markdown. */
+function htmlBlockMarkup(html: string, attrs: string): string {
+  return `<div class="html-block"${attrs}><div class="html-block-label">&lt;html&gt;</div><div class="html-block-content">${html}</div><div class="html-block-label">&lt;/html&gt;</div></div>`;
+}
+
+/** A placeholder holding the diagram source; the renderer draws the diagram into it. */
+function mermaidBlockMarkup(source: string, attrs: string): string {
+  const escaped = source.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  return `<div class="mermaid-block"${attrs}><pre class="mermaid-source"><code>${escaped}</code></pre></div>\n`;
+}
+
 function escapeAttr(value: string): string {
   return value.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
@@ -123,12 +136,12 @@ function escapeAttr(value: string): string {
  * conversation. It spans the block's source lines, from the opening fence to the closing one.
  */
 function communityBlockPlaceholder(token: Tokens.Code & { _line?: number }): string {
-  const attrs = ['class="community-block"'];
+  const parsed = parseCommunityBlock(token.text);
+  const attrs = [parsed.ok ? 'class="community-block"' : 'class="community-block community-block--invalid"'];
   if (token._line != null) {
     const lastLine = token._line + token.raw.trimEnd().split("\n").length - 1;
     attrs.push(`data-source-line="${token._line}"`, `data-source-last-line="${lastLine}"`);
   }
-  const parsed = parseCommunityBlock(token.text);
   if (parsed.ok) {
     attrs.push(
       `data-name="${escapeAttr(parsed.spec.name)}"`,
@@ -155,10 +168,9 @@ const lineRenderer = {
     // at the bottom of the block, consistent with how code blocks show their
     // last inner line at the bottom.
     if (langString === "mermaid") {
-      const escaped = raw.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
       const closingLine = token._line != null ? token._line + token.raw.split("\n").length - 2 : null;
       const lineAttr = closingLine != null ? ` data-source-line="${closingLine}"` : "";
-      return `<div class="mermaid-block"${lineAttr}><pre class="mermaid-source"><code>${escaped}</code></pre></div>\n`;
+      return mermaidBlockMarkup(raw, lineAttr);
     }
 
     // markedHighlight's renderer is overridden by ours, so highlight here directly.
@@ -233,7 +245,7 @@ const lineRenderer = {
     const isClosingTag = /^\s*<\/[a-zA-Z]/.test(token.text);
     if (token._line != null && !isClosingTag) {
       const lastLine = token._line + token.raw.trimEnd().split("\n").length - 1;
-      return `<div class="html-block" data-source-line="${token._line}" data-source-last-line="${lastLine}"><div class="html-block-label">&lt;html&gt;</div><div class="html-block-content">${token.text}</div><div class="html-block-label">&lt;/html&gt;</div></div>`;
+      return htmlBlockMarkup(token.text, ` data-source-line="${token._line}" data-source-last-line="${lastLine}"`);
     }
     if (token._line != null) {
       return `<div data-source-line="${token._line}">${token.text}</div>`;
@@ -290,6 +302,34 @@ const markedPlain = new Marked(
   }),
 );
 
+/**
+ * For claude-community messages: raw HTML gets the same card as in documents and mermaid fences
+ * become diagram placeholders, without source lines, so the gutter ignores them. Everything else,
+ * including a claude-community fence, uses marked's default rendering.
+ */
+const messageRenderer = {
+  html(token: Tokens.HTML | Tokens.Tag): string {
+    if (!token.block || /^\s*<\/[a-zA-Z]/.test(token.text)) {
+      return token.text;
+    }
+    return htmlBlockMarkup(token.text, "");
+  },
+  code(token: Tokens.Code): string | false {
+    if ((token.lang || "").match(/\S+/)?.[0] === "mermaid") {
+      return mermaidBlockMarkup(token.text.replace(/\n$/, "") + "\n", "");
+    }
+    return false;
+  },
+};
+
+const markedMessage = new Marked(
+  markedHighlight({
+    langPrefix: "hljs language-",
+    highlight: highlightCode,
+  }),
+  { renderer: messageRenderer },
+);
+
 function renderMarkdownWithLines(text: string, startLine: number): string {
   const tokens = marked.lexer(text);
   assignLineNumbers(tokens, startLine);
@@ -301,6 +341,8 @@ const api: MdviewApi = {
     startLine != null
       ? renderMarkdownWithLines(text, startLine)
       : (markedPlain.parse(text, { async: false }) as string),
+  renderMessageMarkdown: (text: string) =>
+    markedMessage.parse(text, { async: false }) as string,
 
   onFileUpdated: (callback: (data: FileData) => void) => {
     const listener = (_event: Electron.IpcRendererEvent, data: FileData): void =>

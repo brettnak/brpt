@@ -1,4 +1,3 @@
-import mermaid from "mermaid";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { annotationInsertionLine } from "../../../../shared/annotations";
@@ -8,30 +7,7 @@ import { AnnotationGutter, type GutterLine } from "../AnnotationGutter";
 import { CommunityBlock, findCommunityBlockHosts, loadCommunityBlocks, type CommunityBlockHost } from "../CommunityBlock";
 import { useCurrentHeading } from "../../useCurrentHeading";
 import { SegmentedControl } from "../ui-elements/SegmentedControl";
-import { defaultPaletteForMode, paletteById, paletteMermaidVars, type Palette } from "../../themes";
-
-mermaid.initialize({ startOnLoad: false, theme: "default" });
-
-function readBodyPalette(): Palette {
-  const id = document.body.dataset.palette;
-  const mode = (document.body.dataset.theme as "light" | "dark") || "light";
-  return (id && paletteById(id)) || defaultPaletteForMode(mode);
-}
-
-function useActivePalette(): Palette {
-  const [palette, setPalette] = useState<Palette>(() => readBodyPalette());
-  useEffect(() => {
-    const observer = new MutationObserver(() => {
-      setPalette(readBodyPalette());
-    });
-    observer.observe(document.body, {
-      attributes: true,
-      attributeFilter: ["data-theme", "data-palette"],
-    });
-    return () => observer.disconnect();
-  }, []);
-  return palette;
-}
+import { renderMermaidBlocks, useActivePalette } from "../../mermaidBlocks";
 
 const { mdview } = window;
 
@@ -340,79 +316,16 @@ export function MarkdownContent({
     }
   }, [tab.path, communityHosts]);
 
-  // Render mermaid diagrams in placeholder blocks (re-runs on theme change)
+  // Render mermaid diagrams in placeholder blocks (re-runs on theme change). Diagrams in
+  // claude-community messages are drawn by the message itself.
   useEffect(() => {
     const markdownBody = markdownBodyRef.current;
     if (!markdownBody) {
       return;
     }
-    const blocks = markdownBody.querySelectorAll<HTMLElement>(".mermaid-block");
-    if (blocks.length === 0) {
-      return;
-    }
-
-    // Store source text on first pass, reset rendered/errored blocks for re-render
-    for (const block of blocks) {
-      if (!block.dataset.mermaidSource) {
-        const source = block.querySelector("code")?.textContent?.trim();
-        if (source) {
-          block.dataset.mermaidSource = source;
-        }
-      }
-      block.classList.remove("mermaid-block--rendered", "mermaid-block--error");
-      block.querySelector(".mermaid-rendered")?.remove();
-      block.querySelector(".mermaid-error")?.remove();
-    }
-
-    mermaid.initialize({
-      startOnLoad: false,
-      theme: "base",
-      themeVariables: {
-        darkMode: activePalette.mode === "dark",
-        ...paletteMermaidVars(activePalette),
-      },
-    });
-
-    let cancelled = false;
-
-    (async () => {
-      for (const block of blocks) {
-        if (cancelled) {
-          break;
-        }
-        const code = block.dataset.mermaidSource;
-        if (!code) {
-          continue;
-        }
-        const id = `mermaid-${crypto.randomUUID()}`;
-        try {
-          const { svg } = await mermaid.render(id, code);
-          if (cancelled) {
-            break;
-          }
-          const svgContainer = document.createElement("div");
-          svgContainer.className = "mermaid-rendered";
-          svgContainer.innerHTML = svg;
-          block.appendChild(svgContainer);
-          block.classList.add("mermaid-block--rendered");
-        } catch (err) {
-          if (cancelled) {
-            break;
-          }
-          block.classList.add("mermaid-block--error");
-          const errorEl = document.createElement("div");
-          errorEl.className = "mermaid-error";
-          errorEl.textContent = err instanceof Error ? err.message : "Failed to render diagram";
-          block.appendChild(errorEl);
-          // Clean up any element mermaid may have injected into the document
-          document.getElementById(id)?.remove();
-        }
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
+    const blocks = Array.from(markdownBody.querySelectorAll<HTMLElement>(".mermaid-block"))
+      .filter((block) => !block.closest(".community-block"));
+    return renderMermaidBlocks(blocks, activePalette);
   }, [renderedHtml, activePalette]);
 
   // Ref so the injection effect can read collapsed state without re-running on changes

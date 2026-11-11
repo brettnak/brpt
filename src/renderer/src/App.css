@@ -676,6 +676,23 @@ body[data-theme="dark"] ::highlight(search-active) {
   margin: 16px 0;
 }
 
+.markdown-body .community-block--invalid {
+  height: auto;
+}
+
+.community-block-card--invalid .community-block-header {
+  border-bottom: none;
+}
+
+.community-block-invalid {
+  color: #cf222e;
+  font-weight: 600;
+}
+
+body[data-theme="dark"] .community-block-invalid {
+  color: #f85149;
+}
+
 .community-block-card {
   display: flex;
   flex-direction: column;
