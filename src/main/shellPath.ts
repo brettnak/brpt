@@ -18,8 +18,8 @@ function lookUpShellPath(): Promise<string | undefined> {
   }
   const shell = process.env.SHELL || "/bin/zsh";
   // Interactive login shells can print other output from their startup files, so the PATH is
-  // read from between the markers.
-  const command = `printf '%s' "${MARKER}$PATH${MARKER}"`;
+  // read from between the markers. The braces matter: `$PATH__BRPT...` would name another variable.
+  const command = `printf '%s' "${MARKER}\${PATH}${MARKER}"`;
   return new Promise((resolvePath) => {
     execFile(shell, ["-ilc", command], { timeout: LOOKUP_TIMEOUT_MS, encoding: "utf8" }, (_error, stdout) => {
       const match = stdout?.match(new RegExp(`${MARKER}(.*?)${MARKER}`, "s"));
