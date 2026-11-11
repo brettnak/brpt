@@ -39,13 +39,16 @@ interface Block extends CommunityBlockSpec {
 }
 
 interface Host {
-  child: ChildProcess;
+  /** Null until the PATH lookup finishes and `create` is spawned. */
+  child: ChildProcess | null;
   ready: Promise<void>;
 }
 
 export interface CommunityBlocksOptions {
   /** The path of the claude-community CLI. */
   cliPath: () => string;
+  /** The PATH to run the CLI with. Its launcher runs `node`, which brpt's own PATH may not include. */
+  cliSearchPath: () => Promise<string | undefined>;
   /** Sends a block's state to the renderer. */
   onSnapshot: (snapshot: CommunityBlockSnapshot) => void;
   /** Called when a block's member replies while the block is joined. */
@@ -121,9 +124,15 @@ function blockKey(path: string, name: string): string {
   return `${path}\n${name}`;
 }
 
+function cliEnv(searchPath: string | undefined): NodeJS.ProcessEnv {
+  return searchPath ? { ...process.env, PATH: searchPath } : process.env;
+}
+
 export function createCommunityBlocks(options: CommunityBlocksOptions): CommunityBlocks {
   const blocks = new Map<string, Block>();
   const hosts = new Map<string, Host>();
+  /** Set by `stopAll`, so a host whose spawn was waiting on the PATH lookup isn't started. */
+  let stopped = false;
 
   function snapshotOf(block: Block): CommunityBlockSnapshot {
     return {
@@ -164,30 +173,37 @@ export function createCommunityBlocks(options: CommunityBlocksOptions): Communit
     if (existing) {
       return existing.ready;
     }
-    const child = spawn(
-      options.cliPath(),
-      ["create", community, "--type-local-socket", "--agent-hosted"],
-      { cwd: os.homedir(), stdio: ["ignore", "pipe", "pipe"] },
-    );
-    const stderr: string[] = [];
-    const ready = new Promise<void>((resolvePromise, reject) => {
-      createInterface({ input: child.stdout! }).on("line", (line) => {
-        const message = parseJsonLine(line);
-        if (message?.type === "system" && message.event === "started") {
-          resolvePromise();
-        }
-      });
-      createInterface({ input: child.stderr! }).on("line", (line) => stderr.push(line));
-      child.on("error", reject);
-      child.on("close", (code) => {
-        if (hosts.get(community)?.child === child) {
-          hosts.delete(community);
-        }
-        reject(new Error(stderr.join("\n") || `claude-community create exited with code ${code}`));
+    const entry: Host = { child: null, ready: Promise.resolve() };
+    entry.ready = options.cliSearchPath().then((searchPath) => {
+      if (stopped) {
+        throw new Error("brpt is quitting.");
+      }
+      const child = spawn(
+        options.cliPath(),
+        ["create", community, "--type-local-socket", "--agent-hosted"],
+        { cwd: os.homedir(), stdio: ["ignore", "pipe", "pipe"], env: cliEnv(searchPath) },
+      );
+      entry.child = child;
+      const stderr: string[] = [];
+      return new Promise<void>((resolvePromise, reject) => {
+        createInterface({ input: child.stdout! }).on("line", (line) => {
+          const message = parseJsonLine(line);
+          if (message?.type === "system" && message.event === "started") {
+            resolvePromise();
+          }
+        });
+        createInterface({ input: child.stderr! }).on("line", (line) => stderr.push(line));
+        child.on("error", reject);
+        child.on("close", (code) => {
+          if (hosts.get(community) === entry) {
+            hosts.delete(community);
+          }
+          reject(new Error(stderr.join("\n") || `claude-community create exited with code ${code}`));
+        });
       });
     });
-    hosts.set(community, { child, ready });
-    return ready;
+    hosts.set(community, entry);
+    return entry.ready;
   }
 
   function handleLine(block: Block, child: ChildProcessWithoutNullStreams, line: string): void {
@@ -268,15 +284,22 @@ export function createCommunityBlocks(options: CommunityBlocksOptions): Communit
       setStatus(block, "not-installed", cli);
       return;
     }
-    block.startedAt = new Date().toISOString();
     block.messages = [];
     setStatus(block, "connecting");
+    void options.cliSearchPath().then((searchPath) => {
+      if (!block.removed && block.child === null && block.status === "connecting") {
+        spawnApp(block, cli, searchPath);
+      }
+    });
+  }
 
+  function spawnApp(block: Block, cli: string, searchPath: string | undefined): void {
+    block.startedAt = new Date().toISOString();
     const role = `Conversation block in ${block.path}`.slice(0, ROLE_MAX);
     const child = spawn(
       cli,
       ["app", block.community, block.name, "--app", APP_NAME, "--role", role, "--history"],
-      { cwd: os.homedir() },
+      { cwd: os.homedir(), env: cliEnv(searchPath) },
     );
     block.child = child;
     const stderr: string[] = [];
@@ -381,12 +404,13 @@ export function createCommunityBlocks(options: CommunityBlocksOptions): Communit
     },
 
     stopAll() {
+      stopped = true;
       for (const block of [...blocks.values()]) {
         remove(block);
       }
       // SIGTERM makes `create` post `ended` and stop the community.
       for (const { child } of hosts.values()) {
-        child.kill("SIGTERM");
+        child?.kill("SIGTERM");
       }
       hosts.clear();
     },

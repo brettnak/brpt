@@ -20,6 +20,7 @@ import type {
   Store,
 } from "../shared/types";
 import { createCommunityBlocks, DEFAULT_CLAUDE_COMMUNITY_PATH } from "./communityBlocks";
+import { shellPath, startShellPathLookup } from "./shellPath";
 
 const DEFAULT_CONFIG: AppConfig = {
   theme: "light",
@@ -73,6 +74,7 @@ function saveConfig(config: AppConfig): void {
 
 const communityBlocks = createCommunityBlocks({
   cliPath: () => loadConfig().claudeCommunityPath ?? DEFAULT_CLAUDE_COMMUNITY_PATH,
+  cliSearchPath: shellPath,
   onSnapshot: (snapshot) => {
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send("community-block-updated", snapshot);
@@ -1331,6 +1333,9 @@ const gotTheLock = app.requestSingleInstanceLock();
 if (!gotTheLock) {
   app.quit();
 } else {
+  // claude-community blocks need the login shell's PATH; read it now so it's ready when they start.
+  startShellPathLookup();
+
   app.on("open-file", (_event, filePath) => {
     if (filePath.endsWith(".md")) {
       openFilesAndSend([filePath]);
